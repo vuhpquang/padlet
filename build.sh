@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build.sh
-# Builds Mac Shortcuts as a proper macOS .app bundle, signs it, packages into a DMG,
+# Builds Padlet as a proper macOS .app bundle, signs it, packages into a DMG,
 # and optionally notarizes.
 #
 # USAGE:
@@ -10,14 +10,14 @@
 
 set -euo pipefail
 
-BINARY_NAME="MacShortcuts"
-APP_NAME="Mac Shortcuts"
+BINARY_NAME="Padlet"
+APP_NAME="Padlet"
 APP_BUNDLE="${APP_NAME}.app"
 BUILD_DIR="$(pwd)/build"
 APP_PATH="${BUILD_DIR}/${APP_BUNDLE}"
 DMG_PATH="${BUILD_DIR}/${BINARY_NAME}.dmg"
 TEAM_ID="${TEAM_ID:--}"          # "-" = ad-hoc signing (works locally)
-NOTARYTOOL_PROFILE="${NOTARYTOOL_PROFILE:-MacShortcuts}"
+NOTARYTOOL_PROFILE="${NOTARYTOOL_PROFILE:-Padlet}"
 NOTARIZE="${NOTARIZE:-0}"
 
 # ── STEP 0: Clean ──────────────────────────────────────────
@@ -41,10 +41,10 @@ echo "==> Build succeeded."
 
 # ── STEP 2: Assemble .app bundle ───────────────────────────
 # A proper macOS .app bundle has this layout:
-#   Mac Shortcuts.app/
+#   Padlet.app/
 #     Contents/
 #       MacOS/
-#         MacShortcuts       ← the compiled binary
+#         Padlet       ← the compiled binary
 #       Info.plist           ← tells macOS about the app (name, bundle ID, LSUIElement, etc.)
 #
 # Without this structure macOS treats the binary as a Unix tool and opens it in Terminal.
@@ -55,13 +55,13 @@ mkdir -p "${APP_PATH}/Contents/MacOS"
 cp "${BINARY_PATH}" "${APP_PATH}/Contents/MacOS/${BINARY_NAME}"
 
 # Copy Info.plist into the bundle root (Contents/).
-cp "Sources/MacShortcuts/Resources/Info.plist" "${APP_PATH}/Contents/Info.plist"
+cp "Sources/Padlet/Resources/Info.plist" "${APP_PATH}/Contents/Info.plist"
 
 # Build AppIcon.icns from the 1024px master (regenerate it with scripts/make-icon.swift).
 echo "==> Building AppIcon.icns…"
 mkdir -p "${APP_PATH}/Contents/Resources"
 ICONSET="${BUILD_DIR}/AppIcon.iconset"
-ICON_SRC="Sources/MacShortcuts/Resources/AppIcon.png"
+ICON_SRC="Sources/Padlet/Resources/AppIcon.png"
 mkdir -p "${ICONSET}"
 for s in 16 32 128 256 512; do
     sips -z $s $s             "${ICON_SRC}" --out "${ICONSET}/icon_${s}x${s}.png"    >/dev/null

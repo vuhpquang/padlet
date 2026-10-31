@@ -1,6 +1,6 @@
 #!/usr/bin/env swift
 // scripts/make-icon.swift
-// Draws the Mac Shortcuts app icon (1024×1024 PNG) with AppKit — no design tools needed.
+// Draws the Padlet app icon (1024×1024 PNG) with AppKit — no design tools needed.
 //
 //   swift scripts/make-icon.swift <out.png>
 //
