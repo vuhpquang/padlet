@@ -42,6 +42,40 @@ Once granted, Mac Shortcuts activates automatically — no restart needed.
 
 ---
 
+## Turning Gestures On and Off
+
+Click the menu bar icon:
+
+- **Enable Mac Shortcuts** (⌘E while the menu is open) — the master switch. When it is off the
+  trackpad listener is stopped completely and the icon changes to a slashed hand.
+- **Three-Finger Tap / Click**, **Corner Force Click**, **Edge Controls** — switch one family of
+  gestures off while keeping the others. A family that is off is not tracked at all.
+
+The same switches are at the top of the Settings window. Your choices are remembered.
+
+---
+
+## Edge Controls
+
+Turn the edges of the trackpad into system controls:
+
+| Where | Gesture | Does |
+|-------|---------|------|
+| Right edge | Slide one finger up / down | Volume |
+| Left edge | Slide one finger up / down | Display brightness |
+| Top-right corner | Double-tap | Mute / unmute |
+| Bottom edge | Swipe left / right | Previous / next track |
+| Bottom edge | Double-tap (off by default) | Play / pause |
+
+The native volume / brightness bezel appears while you slide, with a light haptic tick on every step.
+Hold **⇧⌥** while sliding for quarter steps.
+
+Options (Settings → Edge Controls): swap sides, freeze the pointer while sliding, haptics,
+always use quarter steps, lower-25%-only, require Fn or ⌥, edge width, sensitivity, and a typing
+guard that ignores edge touches right after a key press (palm rejection).
+
+---
+
 ## Default Gesture Mappings
 
 Out of the box, Mac Shortcuts comes pre-configured with two gestures:

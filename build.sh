@@ -13,7 +13,6 @@ set -euo pipefail
 BINARY_NAME="MacShortcuts"
 APP_NAME="Mac Shortcuts"
 APP_BUNDLE="${APP_NAME}.app"
-BINARY_PATH=".build/apple/Products/Release/${BINARY_NAME}"
 BUILD_DIR="$(pwd)/build"
 APP_PATH="${BUILD_DIR}/${APP_BUNDLE}"
 DMG_PATH="${BUILD_DIR}/${BINARY_NAME}.dmg"
@@ -29,6 +28,10 @@ mkdir -p "${BUILD_DIR}"
 # ── STEP 1: Compile universal binary ───────────────────────
 echo "==> Building universal release binary (arm64 + x86_64)…"
 swift build -c release --arch arm64 --arch x86_64
+# Ask SwiftPM where it put the binary — the output folder differs between toolchains
+# (.build/apple/… on older ones, .build/out/… on newer), and a hardcoded path silently
+# packaged a stale binary.
+BINARY_PATH="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/${BINARY_NAME}"
 
 if [[ ! -f "${BINARY_PATH}" ]]; then
     echo "ERROR: Binary not found at ${BINARY_PATH}" >&2
@@ -53,6 +56,19 @@ cp "${BINARY_PATH}" "${APP_PATH}/Contents/MacOS/${BINARY_NAME}"
 
 # Copy Info.plist into the bundle root (Contents/).
 cp "Sources/MacShortcuts/Resources/Info.plist" "${APP_PATH}/Contents/Info.plist"
+
+# Build AppIcon.icns from the 1024px master (regenerate it with scripts/make-icon.swift).
+echo "==> Building AppIcon.icns…"
+mkdir -p "${APP_PATH}/Contents/Resources"
+ICONSET="${BUILD_DIR}/AppIcon.iconset"
+ICON_SRC="Sources/MacShortcuts/Resources/AppIcon.png"
+mkdir -p "${ICONSET}"
+for s in 16 32 128 256 512; do
+    sips -z $s $s             "${ICON_SRC}" --out "${ICONSET}/icon_${s}x${s}.png"    >/dev/null
+    sips -z $((s*2)) $((s*2)) "${ICON_SRC}" --out "${ICONSET}/icon_${s}x${s}@2x.png" >/dev/null
+done
+iconutil -c icns "${ICONSET}" -o "${APP_PATH}/Contents/Resources/AppIcon.icns"
+rm -rf "${ICONSET}"
 
 # ── STEP 3: Code-sign the .app bundle ──────────────────────
 # Sign the whole bundle (not just the binary) so Gatekeeper is satisfied.

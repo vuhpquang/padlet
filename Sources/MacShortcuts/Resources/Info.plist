@@ -22,6 +22,10 @@
     <key>CFBundleIdentifier</key>
     <string>com.mac-shortcuts.app</string>
 
+    <!-- App icon: Contents/Resources/AppIcon.icns (built by build.sh from AppIcon.png) -->
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+
     <!-- App version -->
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>

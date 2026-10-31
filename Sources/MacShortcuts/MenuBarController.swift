@@ -1,174 +1,188 @@
 // MenuBarController.swift
-// This file controls the little icon that appears in the macOS menu bar (top-right area).
-// When you click the icon, a dropdown menu appears with three options:
-//   • "Settings…" — opens the settings window where you configure gestures
-//   • A separator line
-//   • "Quit GestureKit" — exits the app
-// If Accessibility permission is missing, an extra "Enable Accessibility…" item
-// appears at the top as a warning, and the icon gets an amber tint.
+// The menu bar item.
+//   • Left click  → the Mac Shortcuts panel (a popover hosting SettingsView).
+//   • Right click → a compact menu: master switch, per-family switches, Settings…, Quit.
+// The glyph (MenuBarIcon) shows a slash when everything is off and turns amber when
+// Accessibility permission is missing.
 
 import AppKit
+import Combine
 import SwiftUI
 
-class MenuBarController {
+class MenuBarController: NSObject {
 
-    // NSStatusItem is the actual object that lives in the menu bar.
-    // "variableLength" means macOS decides how wide to make the icon slot.
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
-    // The dropdown menu that appears when the user clicks the icon.
     private let menu = NSMenu()
+    private let popover = NSPopover()
 
-    // The "Enable Accessibility…" warning item — only shown when permission is missing.
+    private var masterItem: NSMenuItem?
+    private var familyItems: [(NSMenuItem, WritableKeyPath<FeatureFlags, Bool>)] = []
     private var accessibilityWarningItem: NSMenuItem?
+    private var cancellables: Set<AnyCancellable> = []
+    private var permissionMissing = false
 
-    // Reference to the Settings window — kept weak so it can be released when closed.
-    private weak var settingsWindow: NSWindow?
-
-    init() {
-        setupIcon()
+    override init() {
+        super.init()
+        setupButton()
+        setupPopover()
         setupMenu()
+
+        Preferences.shared.$flags
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.render(flags: $0) }
+            .store(in: &cancellables)
     }
 
-    // MARK: - Icon Setup
+    // MARK: - Setup
 
-    private func setupIcon() {
+    private func setupButton() {
         guard let button = statusItem.button else { return }
-
-        // Use an SF Symbol hand icon as the menu bar icon.
-        // "hand.point.up.left" looks like a pointing finger — fitting for a gesture app.
-        // .template rendering mode makes it automatically adapt to light/dark menu bars.
-        if let image = NSImage(systemSymbolName: "hand.point.up.left", accessibilityDescription: "Mac Shortcuts") {
-            image.isTemplate = true  // Allows macOS to tint it automatically
-            button.image = image
-        }
-
-        button.toolTip = "Mac Shortcuts — Trackpad Gesture Manager"
-        button.action = #selector(statusItemClicked)
+        button.image = MenuBarIcon.image(enabled: true)
+        button.action = #selector(statusItemClicked(_:))
         button.target = self
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
     }
 
-    // MARK: - Menu Setup
+    private func setupPopover() {
+        let hosting = NSHostingController(rootView: SettingsView())
+        hosting.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hosting
+        popover.behavior = .transient
+        popover.animates = true
+    }
 
     private func setupMenu() {
-        // "Settings…" opens the configuration window.
-        let settingsItem = NSMenuItem(title: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
+        let master = NSMenuItem(title: "Enable Mac Shortcuts", action: #selector(toggleMaster), keyEquivalent: "e")
+        master.target = self
+        menu.addItem(master)
+        masterItem = master
 
-        // Visual separator between settings and quit.
-        menu.addItem(NSMenuItem.separator())
+        let families: [(String, WritableKeyPath<FeatureFlags, Bool>)] = [
+            ("Three-Finger Tap / Click", \.threeFinger),
+            ("Corner Force Click", \.cornerForceClick),
+            ("Edge Controls", \.edgeControls),
+        ]
+        for (title, keyPath) in families {
+            let item = NSMenuItem(title: title, action: #selector(toggleFamily(_:)), keyEquivalent: "")
+            item.target = self
+            item.indentationLevel = 1
+            menu.addItem(item)
+            familyItems.append((item, keyPath))
+        }
 
-        // "Quit GestureKit" exits the app cleanly.
-        let quitItem = NSMenuItem(title: "Quit Mac Shortcuts", action: #selector(quitApp), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        statusItem.menu = menu
+        menu.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        let update = NSMenuItem(title: "Check for Updates\u{2026}", action: #selector(checkForUpdates), keyEquivalent: "")
+        update.target = self
+        menu.addItem(update)
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit Mac Shortcuts", action: #selector(quitApp), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
     }
 
-    // MARK: - Permission Warning
+    // MARK: - Click handling
 
-    // Shows an amber-tinted icon and an "Enable Accessibility…" menu item
-    // when the app hasn't been granted Accessibility permission yet.
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        let isRightClick = event?.type == .rightMouseUp
+            || (event?.modifierFlags.contains(.control) ?? false)
+        if isRightClick {
+            popover.performClose(nil)
+            statusItem.menu = menu           // attach just long enough to pop it up
+            sender.performClick(nil)
+            statusItem.menu = nil
+        } else {
+            togglePopover()
+        }
+    }
+
+    private func togglePopover() {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
+    }
+
+    // MARK: - Actions
+
+    @objc private func toggleMaster() {
+        Preferences.shared.flags.masterEnabled.toggle()
+    }
+
+    @objc private func toggleFamily(_ sender: NSMenuItem) {
+        guard let keyPath = familyItems.first(where: { $0.0 === sender })?.1 else { return }
+        Preferences.shared.flags[keyPath: keyPath].toggle()
+    }
+
+    /// Opens the panel on its Settings page.
+    @objc func openSettings() {
+        if !popover.isShown { togglePopover() }
+        NotificationCenter.default.post(name: .showSettingsPage, object: nil)
+    }
+
+    @objc private func checkForUpdates() {
+        UpdateManager.shared.check(userInitiated: true)
+        if !popover.isShown { togglePopover() }
+        NotificationCenter.default.post(name: .showSettingsPage, object: nil)
+    }
+
+    @objc private func openAccessibility() {
+        openAccessibilitySettings()
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
+    }
+
+    // MARK: - Rendering
+
+    private func render(flags: FeatureFlags) {
+        masterItem?.state = flags.masterEnabled ? .on : .off
+        for (item, keyPath) in familyItems {
+            item.state = flags[keyPath: keyPath] ? .on : .off
+            item.isEnabled = flags.masterEnabled
+        }
+        guard let button = statusItem.button else { return }
+        button.image = MenuBarIcon.image(enabled: flags.masterEnabled)
+        button.appearsDisabled = !flags.masterEnabled
+        button.contentTintColor = permissionMissing ? .systemOrange : nil
+        button.toolTip = flags.masterEnabled
+            ? "Mac Shortcuts — click for controls, right-click for quick switches"
+            : "Mac Shortcuts — all gestures are off"
+    }
+
+    // MARK: - Permission warning
+
     func showPermissionWarning() {
         guard accessibilityWarningItem == nil else { return }
+        permissionMissing = true
+        statusItem.button?.contentTintColor = .systemOrange
 
-        // Tint the icon amber to indicate something needs attention.
-        tintIcon(color: .systemOrange)
-
-        // Insert the warning item at the very top of the menu.
-        let warningItem = NSMenuItem(
-            title: "Enable Accessibility\u{2026}",
-            action: #selector(openAccessibilitySettings),
-            keyEquivalent: ""
-        )
-        warningItem.target = self
-        // Add a warning symbol to make it visually distinct.
-        warningItem.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill",
-                                     accessibilityDescription: "Warning")
-        menu.insertItem(warningItem, at: 0)
-        menu.insertItem(NSMenuItem.separator(), at: 1)
-        accessibilityWarningItem = warningItem
+        let item = NSMenuItem(title: "Enable Accessibility\u{2026}", action: #selector(openAccessibility), keyEquivalent: "")
+        item.target = self
+        item.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Warning")
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        accessibilityWarningItem = item
     }
 
-    // Removes the warning once the user grants Accessibility permission.
     func hidePermissionWarning() {
-        guard let warningItem = accessibilityWarningItem else { return }
-
-        // Remove the warning item and the separator below it.
-        if let index = menu.items.firstIndex(of: warningItem) {
+        guard let item = accessibilityWarningItem else { return }
+        if let index = menu.items.firstIndex(of: item) {
             menu.removeItem(at: index)
             if index < menu.items.count && menu.items[index].isSeparatorItem {
                 menu.removeItem(at: index)
             }
         }
         accessibilityWarningItem = nil
-
-        // Restore the neutral icon tint.
-        resetIconTint()
-    }
-
-    // MARK: - Icon Tinting
-
-    private func tintIcon(color: NSColor) {
-        guard let button = statusItem.button else { return }
-        button.contentTintColor = color
-    }
-
-    private func resetIconTint() {
-        guard let button = statusItem.button else { return }
-        button.contentTintColor = nil  // nil = use the system default (adapts to dark/light)
-    }
-
-    // MARK: - Actions
-
-    @objc private func statusItemClicked() {
-        // Menu is attached directly, so clicking automatically shows it.
-        // This action handler exists for future customisation if needed.
-    }
-
-    // Opens the GestureKit Settings window (480x520, floating, single instance).
-    @objc func openSettings() {
-        if let existing = settingsWindow, existing.isVisible {
-            // Bring the existing window to the front instead of opening a second one.
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        // Create the SwiftUI settings view hosted inside an AppKit window.
-        let settingsView = SettingsView()
-        let hostingController = NSHostingController(rootView: settingsView)
-
-        // Fixed 480x520 window — no resize, no minimize, no full-screen.
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 520),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Mac Shortcuts Settings"
-        window.contentViewController = hostingController
-        window.level = .floating     // Stays above normal windows
-        window.center()              // Center on screen
-        window.isReleasedWhenClosed = false  // Keep the window object alive
-
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-
-        settingsWindow = window
-    }
-
-    // Opens System Settings directly to the Accessibility pane.
-    @objc private func openAccessibilitySettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-        NSWorkspace.shared.open(url)
-    }
-
-    // Exits the application.
-    @objc private func quitApp() {
-        NSApp.terminate(nil)
+        permissionMissing = false
+        statusItem.button?.contentTintColor = nil
     }
 }

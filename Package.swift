@@ -13,6 +13,8 @@ let package = Package(
         .executableTarget(
             name: "MacShortcuts",
             path: "Sources/MacShortcuts",
+            // Info.plist and the icon are copied into the .app by build.sh, not SPM.
+            exclude: ["Resources"],
             swiftSettings: []
         )
     ]

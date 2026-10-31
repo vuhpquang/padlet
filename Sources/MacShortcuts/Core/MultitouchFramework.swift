@@ -30,6 +30,9 @@ typealias MTDeviceStartFn = @convention(c) (MTDevice, Int32) -> Void
 // Stops touch event delivery.
 typealias MTDeviceStopFn = @convention(c) (MTDevice, Int32) -> Void
 
+// Reads the hardware family ID (used to tell a Magic Mouse apart from a trackpad).
+typealias MTDeviceGetFamilyIDFn = @convention(c) (MTDevice, UnsafeMutablePointer<Int32>) -> Int32
+
 // MARK: - MultitouchFramework Singleton
 
 /// Loads the private MultitouchSupport framework and exposes its key functions.
@@ -52,6 +55,8 @@ class MultitouchFramework {
     var MTRegisterContactFrameCallback: MTRegisterContactFrameCallbackFn?
     var MTDeviceStart: MTDeviceStartFn?
     var MTDeviceStop: MTDeviceStopFn?
+    /// Optional — older/newer systems may not export it; callers must handle nil.
+    var MTDeviceGetFamilyID: MTDeviceGetFamilyIDFn?
 
     private init() {
         loadFramework()
@@ -99,6 +104,11 @@ class MultitouchFramework {
             return
         }
         MTDeviceStop = unsafeBitCast(stopPtr, to: MTDeviceStopFn.self)
+
+        // Optional symbol — absence only disables the Magic Mouse filter.
+        if let familyPtr = dlsym(handle, "MTDeviceGetFamilyID") {
+            MTDeviceGetFamilyID = unsafeBitCast(familyPtr, to: MTDeviceGetFamilyIDFn.self)
+        }
 
         isAvailable = true
         print("[MacShortcuts] MultitouchSupport loaded successfully.")

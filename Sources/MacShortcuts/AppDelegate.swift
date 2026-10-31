@@ -8,6 +8,7 @@
 
 import AppKit
 import ApplicationServices
+import Combine
 
 // @NSApplicationMain is replaced by a manual entry point in main.swift for SPM builds.
 // This class handles app lifecycle events sent by macOS.
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // for the entire lifetime of the app.
     private var menuBarController: MenuBarController!
     private var permissionsManager: PermissionsManager!
+    private var appearanceCancellable: AnyCancellable?
 
     // Called by macOS right after the app finishes launching.
     // This is the right place to do all one-time setup.
@@ -24,9 +26,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Install the click suppressor early so the CGEventTap is ready before
         // any force-click gestures are detected. Accessing the singleton is enough.
         _ = ClickSuppressor.shared
+        _ = CursorFreezer.shared
+
+        // Apply Light / Dark / System appearance and follow changes from Settings.
+        appearanceCancellable = Preferences.shared.$general
+            .map(\.appearance)
+            .removeDuplicates()
+            .sink { mode in
+                switch mode {
+                case .system: NSApp.appearance = nil
+                case .light:  NSApp.appearance = NSAppearance(named: .aqua)
+                case .dark:   NSApp.appearance = NSAppearance(named: .darkAqua)
+                }
+            }
+
+        #if DEBUG
+        PanelSnapshot.runIfRequested()
+        #endif
 
         // Step 1: Create the menu bar icon and dropdown menu.
         menuBarController = MenuBarController()
+
+        // Look for new releases on GitHub (launch + every 6 h, if enabled).
+        UpdateManager.shared.startAutomaticChecks()
 
         // Step 2: Set up the permissions manager.
         permissionsManager = PermissionsManager()
@@ -73,6 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             guard PermissionsManager.isAccessibilityGranted() else { return }
             ClickSuppressor.shared.reinstall()
+            CursorFreezer.shared.reinstall()
             GestureCoordinator.shared.start()
         }
     }
@@ -91,5 +114,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // NSApp.terminate(_:) eventually calls this method; cleanup happens here if needed.
     func applicationWillTerminate(_ notification: Notification) {
         GestureCoordinator.shared.stop()
+        CursorFreezer.shared.release()
     }
 }

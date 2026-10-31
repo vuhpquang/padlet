@@ -40,12 +40,15 @@ final class ClickSuppressor {
     /// Arm the suppressor. The next leftMouseDown + leftMouseUp pair will be
     /// consumed (not forwarded to apps). Disarms automatically after 300 ms
     /// if no click arrives.
-    func arm() {
+    func arm(for duration: TimeInterval = 0.3) {
         armed = true
-        disarmTimer?.cancel()
         let item = DispatchWorkItem { [weak self] in self?.armed = false }
+        // The timer is touched from the multitouch thread and the main thread.
+        lock.lock()
+        disarmTimer?.cancel()
         disarmTimer = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: item)
+        lock.unlock()
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: item)
     }
 
     /// Tear down the existing event tap and install a fresh one.

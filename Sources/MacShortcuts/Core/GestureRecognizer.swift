@@ -21,9 +21,19 @@ protocol GestureRecognizerDelegate: AnyObject {
 
 // MARK: - GestureRecognizer
 
-class GestureRecognizer: DeviceMonitorDelegate {
+class GestureRecognizer {
 
     weak var delegate: GestureRecognizerDelegate?
+
+    // Per-family switches, set by GestureCoordinator from FeatureFlags.
+    // When a family is off its state machine is not run at all, so e.g. a disabled
+    // corner force click can no longer arm the ClickSuppressor.
+    var threeFingerEnabled = true {
+        didSet { if !threeFingerEnabled { threeFingerStart = nil; tapFired = false } }
+    }
+    var forceClickEnabled = true {
+        didSet { if !forceClickEnabled { forceClickFired.removeAll() } }
+    }
 
     // Thresholds
     var tapMaxDuration: TimeInterval = 0.50     // tap must lift within this time
@@ -60,13 +70,13 @@ class GestureRecognizer: DeviceMonitorDelegate {
     // time to intercept the leftMouseDown before our gesture fires.
     private let forcePreArmThreshold: Float = 0.81
 
-    // MARK: - DeviceMonitorDelegate
+    // MARK: - Frame input (called by GestureCoordinator on the multitouch thread)
 
-    func didReceiveFingers(_ fingers: [MTFinger], timestamp: Double) {
+    func process(fingers: [MTFinger], timestamp: Double) {
         // Palm rejection: filter out contacts that are likely palms or wrists.
         let validFingers = fingers.filter { isFingerContact($0) }
-        processThreeFinger(fingers: validFingers, timestamp: timestamp)
-        processForceClick(fingers: validFingers)
+        if threeFingerEnabled { processThreeFinger(fingers: validFingers, timestamp: timestamp) }
+        if forceClickEnabled { processForceClick(fingers: validFingers) }
     }
 
     /// Returns true when a contact looks like an intentional fingertip touch.
