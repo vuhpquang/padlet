@@ -51,8 +51,10 @@ newest="$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -t. -k1,1n -k2,2n -k3,3
 [[ "$VERSION" != "$CURRENT" && "$newest" == "$VERSION" ]] || die "$VERSION must be newer than $CURRENT"
 echo "    $CURRENT (build $BUILD) → $VERSION (build $((BUILD + 1)))"
 
+COMMITTED=0
+# Dry runs always revert the bump; real runs revert it if they fail before committing.
 undo() {
-    if [[ "$DRY_RUN" == "1" ]]; then git checkout -q -- "$PLIST" "$CASK"; fi
+    if [[ "$DRY_RUN" == "1" || "$COMMITTED" == "0" ]]; then git checkout -q -- "$PLIST" "$CASK"; fi
 }
 trap undo EXIT
 
@@ -92,6 +94,7 @@ fi
 step "Committing and tagging $TAG"
 git add "$PLIST" "$CASK"
 git commit -q -m "release: $TAG"
+COMMITTED=1
 git tag -a "$TAG" -m "Padlet $VERSION"
 git push -q origin "$BRANCH" "$TAG"
 

@@ -105,14 +105,17 @@ echo "==> Signature OK."
 # from a private venv under .build/. If it can't be installed, fall back to a plain DMG.
 echo "==> Creating DMG…"
 DMGBUILD_VENV="$(pwd)/.build/dmgbuild-venv"
-if [[ ! -x "${DMGBUILD_VENV}/bin/dmgbuild" ]]; then
+# A venv hardcodes its own path, so it breaks when the repo folder is moved or renamed:
+# check that it actually runs, and rebuild it if not.
+if ! "${DMGBUILD_VENV}/bin/python3" -c "import dmgbuild" >/dev/null 2>&1; then
+    rm -rf "${DMGBUILD_VENV}"
     python3 -m venv "${DMGBUILD_VENV}" >/dev/null 2>&1 \
-        && "${DMGBUILD_VENV}/bin/pip" install --quiet --disable-pip-version-check dmgbuild >/dev/null 2>&1 \
+        && "${DMGBUILD_VENV}/bin/python3" -m pip install --quiet --disable-pip-version-check dmgbuild >/dev/null 2>&1 \
         || true
 fi
 
-if [[ -x "${DMGBUILD_VENV}/bin/dmgbuild" ]]; then
-    "${DMGBUILD_VENV}/bin/dmgbuild" \
+if "${DMGBUILD_VENV}/bin/python3" -c "import dmgbuild" >/dev/null 2>&1; then
+    "${DMGBUILD_VENV}/bin/python3" -m dmgbuild \
         -s scripts/dmg-settings.py \
         -D app="${APP_PATH}" \
         -D background="$(pwd)/packaging/dmg-background.png" \
