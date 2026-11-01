@@ -1,5 +1,5 @@
 // Update/UpdateManager.swift
-// Self-update from GitHub Releases (github.com/vuhpquang/mac-shortcuts).
+// Self-update from GitHub Releases (github.com/vuhpquang/padlet).
 //
 // Flow:
 //   1. check()   — GET /repos/{repo}/releases/latest (pre-releases are excluded by GitHub),
@@ -27,7 +27,7 @@ final class UpdateManager: ObservableObject {
 
     static let shared = UpdateManager()
 
-    static let repo = "vuhpquang/mac-shortcuts"
+    static let repo = "vuhpquang/padlet"
 
     enum State: Equatable {
         case idle

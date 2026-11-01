@@ -44,7 +44,19 @@ and automatic updates from GitHub Releases.
 
 ## Install
 
-1. Download `Padlet.dmg` from [Releases](https://github.com/vuhpquang/mac-shortcuts/releases) and drag **Padlet** to Applications.
+**Homebrew**
+
+```bash
+brew trust vuhpquang/tap                    # Homebrew 7+ only loads casks from trusted taps
+brew install --cask vuhpquang/tap/padlet
+```
+
+Use the full name: Homebrew's main repository has an unrelated `padlet` cask. Padlet updates
+itself, so `brew upgrade` leaves it alone.
+
+**Manually**
+
+1. Download `Padlet.dmg` from [Releases](https://github.com/vuhpquang/padlet/releases) and drag **Padlet** to Applications.
 2. Open it. Padlet isn't notarized by Apple, so the first launch may be blocked: open
    System Settings → Privacy & Security and click **Open Anyway**.
 3. The welcome guide walks you through granting **Accessibility** access
@@ -112,10 +124,14 @@ Logs go to the unified log: `log stream --predicate 'subsystem == "com.vuhpquang
 
 ### Releasing
 
-1. Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Sources/Padlet/Resources/Info.plist`.
-2. `./build.sh` (with the self-signed identity in the keychain — check the log says
-   `Code-signing Padlet.app with: Padlet Self-Signed`).
-3. `gh release create v2.0.1 build/Padlet.dmg -R vuhpquang/mac-shortcuts --target develop --title "Padlet 2.0.1" --notes "…"`.
-   Installed copies pick it up within six hours.
-4. Homebrew: set `version` and `sha256` (`shasum -a 256 build/Padlet.dmg`) in
-   `packaging/homebrew/padlet.rb` and copy it to `Casks/padlet.rb` in `vuhpquang/homebrew-tap`.
+```bash
+scripts/release.sh 2.0.1 notes.md        # or omit notes.md for generated notes
+DRY_RUN=1 scripts/release.sh 2.0.1       # build + verify only
+```
+
+Run it from a clean `develop` that is in sync with origin. It bumps the version, runs the
+tests, builds and checks that the app is signed by the release certificate (installed copies
+reject anything else). Then it updates the cask, commits, tags and pushes, publishes the
+GitHub release with `Padlet.dmg`, and pushes the new cask to
+[vuhpquang/homebrew-tap](https://github.com/vuhpquang/homebrew-tap). Installed copies pick
+up the release within six hours.

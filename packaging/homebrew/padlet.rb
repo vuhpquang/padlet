@@ -2,6 +2,7 @@
 # this copy is the source of truth — update version + sha256 after each release
 # (shasum -a 256 build/Padlet.dmg).
 #
+#   brew trust vuhpquang/tap          # Homebrew 7+ refuses casks from untrusted taps
 #   brew install --cask vuhpquang/tap/padlet
 #
 # The fully qualified name matters: the official homebrew/cask already has an unrelated
@@ -10,10 +11,10 @@ cask "padlet" do
   version "2.0.0"
   sha256 "642009023eaf73ad856186735eb09eaba1323fc7e77c814b6fb7796be3b8b823"
 
-  url "https://github.com/vuhpquang/mac-shortcuts/releases/download/v#{version}/Padlet.dmg"
+  url "https://github.com/vuhpquang/padlet/releases/download/v#{version}/Padlet.dmg"
   name "Padlet"
   desc "Trackpad edge controls and extra gestures in the menu bar"
-  homepage "https://github.com/vuhpquang/mac-shortcuts"
+  homepage "https://github.com/vuhpquang/padlet"
 
   livecheck do
     url :url
@@ -21,7 +22,7 @@ cask "padlet" do
   end
 
   auto_updates true
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "Padlet.app"
 
