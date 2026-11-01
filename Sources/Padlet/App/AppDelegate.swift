@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = CursorFreezer.shared
 
         followAppearanceSetting()
+        followToggleHotKey()
         AppMenu.install(target: self)
         menuBarController = MenuBarController()
         menuBarController.onShowWelcome = { [weak self] in self?.showOnboarding() }
@@ -96,6 +97,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .system: NSApp.appearance = nil
                 case .light:  NSApp.appearance = NSAppearance(named: .aqua)
                 case .dark:   NSApp.appearance = NSAppearance(named: .darkAqua)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Keeps the "turn Padlet on/off" hotkey registered to whatever the setting says.
+    private func followToggleHotKey() {
+        Preferences.shared.$general
+            .map(\.toggleHotKey)
+            .removeDuplicates()
+            .sink { combo in
+                GlobalHotKey.shared.register(combo) {
+                    let prefs = Preferences.shared
+                    prefs.flags.masterEnabled.toggle()
+                    TrackpadHaptics.shared.tick(deviceID: nil)
+                    Log.info("Hotkey: Padlet \(prefs.flags.masterEnabled ? "on" : "off")")
                 }
             }
             .store(in: &cancellables)

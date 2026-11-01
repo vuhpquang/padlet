@@ -9,7 +9,7 @@ Bundle ID `com.vuhpquang.padlet`, macOS 13+, universal binary.
 
 ```bash
 swift build                       # debug build
-swift test                        # 50 unit tests: recognizers, actions, settings, migration
+swift test                        # 54 unit tests: recognizers, actions, window geometry, settings
 ./build.sh                        # release .app + styled DMG in build/
 scripts/release.sh X.Y.Z [notes.md]   # full release (see below)
 DRY_RUN=1 scripts/release.sh X.Y.Z    # build + verify only, reverts the version bump
@@ -41,11 +41,16 @@ Homebrew cask source.
 
 ## Actions
 
-`GestureAction` = `.none | .builtin(BuiltinAction) | .keystroke | .openApp | .runShortcut`.
+`GestureAction` = `.none | .builtin(BuiltinAction) | .keystroke | .openApp | .runShortcut |
+.openURL | .pasteText | .runCommand`.
 `BuiltinAction` raw values are persisted (and match v1/v2.0 type names), so never rename
 one. Add a case → give it a group, a title and a branch in `ActionExecutor.perform`.
 Window actions live in `System/WindowManager.swift` (AX API). Keystrokes post real key
 codes via `System/KeyCodes.swift` (layout-aware), and fall back to a Unicode event.
+Do Not Disturb has no public API: `System/DoNotDisturb.swift` runs the user's
+"Toggle Do Not Disturb" shortcut and shows setup help if it fails. The on/off hotkey is a
+Carbon hotkey (`System/GlobalHotKey.swift`, `GeneralSettings.toggleHotKey`), and it is
+paused while a recorder listens.
 
 ## Gotchas
 

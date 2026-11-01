@@ -33,6 +33,9 @@ enum PanelSnapshot {
             GestureSlot.threeFingerTap.rawValue: .nextTab,
             GestureSlot.topEdgeSwipeLeft.rawValue: .previousTab,
             GestureSlot.cornerTopRight.rawValue: .builtin(.moveToNextDisplay),
+            GestureSlot.cornerBottomLeft.rawValue: .pasteText(text: "Thanks for the review!"),
+            GestureSlot.cornerBottomRight.rawValue: .builtin(.toggleDoNotDisturb),
+            GestureSlot.threeFingerClick.rawValue: .runCommand(command: "open -a Notes"),
             GestureSlot.fourFingerTap.rawValue: .keystroke(key: "t", modifiers: [.command, .shift]),
         ])
         let savedProfiles = prefs.profiles

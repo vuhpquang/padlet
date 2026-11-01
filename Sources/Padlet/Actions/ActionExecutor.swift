@@ -24,6 +24,12 @@ final class ActionExecutor {
             openApp(bundleID: bundleID)
         case .runShortcut(let name):
             runShortcut(name)
+        case .openURL(let url):
+            openURL(url)
+        case .pasteText(let text):
+            paste(text)
+        case .runCommand(let command):
+            runCommand(command)
         }
     }
 
@@ -36,6 +42,7 @@ final class ActionExecutor {
         case .spotlight:             postKey(49, flags: .maskCommand)                  // ⌘Space
         case .screenshot:            postKey(23, flags: [.maskCommand, .maskShift])    // ⇧⌘5
         case .lockScreen:            postKey(12, flags: [.maskCommand, .maskControl])  // ⌃⌘Q
+        case .toggleDoNotDisturb:    DoNotDisturb.toggle()
         case .previousSpace:         postKey(123, flags: .maskControl)                 // ⌃←
         case .nextSpace:             postKey(124, flags: .maskControl)                 // ⌃→
         case .moveToNextDisplay:     WindowManager.moveToDisplay(offset: 1)
@@ -43,6 +50,13 @@ final class ActionExecutor {
         case .maximizeWindow:        WindowManager.place(.fill)
         case .leftHalf:              WindowManager.place(.leftHalf)
         case .rightHalf:             WindowManager.place(.rightHalf)
+        case .topHalf:               WindowManager.place(.topHalf)
+        case .bottomHalf:            WindowManager.place(.bottomHalf)
+        case .leftThird:             WindowManager.place(.leftThird)
+        case .centerThird:           WindowManager.place(.centerThird)
+        case .rightThird:            WindowManager.place(.rightThird)
+        case .leftTwoThirds:         WindowManager.place(.leftTwoThirds)
+        case .rightTwoThirds:        WindowManager.place(.rightTwoThirds)
         case .centerWindow:          WindowManager.place(.center)
         case .minimizeWindow:        WindowManager.minimize()
         case .toggleFullScreen:      WindowManager.toggleFullScreen()
@@ -127,6 +141,60 @@ final class ActionExecutor {
             }
         }
         do { try task.run() } catch { Log.error("ActionExecutor: could not run shortcut \"\(name)\": \(error)") }
+    }
+
+    private func openURL(_ string: String) {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        // "example.com" → https://example.com; anything with a scheme opens as-is.
+        let withScheme = trimmed.contains(":") ? trimmed : "https://" + trimmed
+        guard let url = URL(string: withScheme) else {
+            Log.error("ActionExecutor: not a URL: \(trimmed)")
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// Puts the text on the clipboard, posts ⌘V, then puts the previous clipboard back.
+    private func paste(_ text: String) {
+        guard !text.isEmpty else { return }
+        let board = NSPasteboard.general
+        let saved: [[NSPasteboard.PasteboardType: Data]] = (board.pasteboardItems ?? []).map { item in
+            var copy: [NSPasteboard.PasteboardType: Data] = [:]
+            for type in item.types { if let data = item.data(forType: type) { copy[type] = data } }
+            return copy
+        }
+        board.clearContents()
+        board.setString(text, forType: .string)
+        let changeCount = board.changeCount
+        postKey(9, flags: .maskCommand)                                      // ⌘V
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            // Leave the clipboard alone if something else changed it meanwhile.
+            guard board.changeCount == changeCount else { return }
+            board.clearContents()
+            let items = saved.map { entries -> NSPasteboardItem in
+                let item = NSPasteboardItem()
+                for (type, data) in entries { item.setData(data, forType: type) }
+                return item
+            }
+            if !items.isEmpty { board.writeObjects(items) }
+        }
+    }
+
+    private func runCommand(_ command: String) {
+        guard !command.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        task.arguments = ["-c", command]
+        task.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        task.terminationHandler = { process in
+            if process.terminationStatus != 0 {
+                Log.error("ActionExecutor: command exited with \(process.terminationStatus)")
+            }
+        }
+        do { try task.run() } catch { Log.error("ActionExecutor: could not run command: \(error)") }
     }
 
     private func openApp(bundleID: String) {

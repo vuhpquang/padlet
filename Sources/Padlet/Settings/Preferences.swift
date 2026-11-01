@@ -184,6 +184,8 @@ struct GeneralSettings: Codable, Equatable {
     var onboardingCompleted = false
     /// Open at Login is turned on once, on the first launch; afterwards the user's choice wins.
     var openAtLoginDefaultApplied = false
+    /// System-wide shortcut that turns every gesture on/off. None by default.
+    var toggleHotKey: KeyCombo?
 
     init() {}
 
@@ -196,6 +198,7 @@ struct GeneralSettings: Codable, Equatable {
         autoInstallUpdates        = c.value(.autoInstallUpdates, d.autoInstallUpdates)
         onboardingCompleted       = c.value(.onboardingCompleted, d.onboardingCompleted)
         openAtLoginDefaultApplied = c.value(.openAtLoginDefaultApplied, d.openAtLoginDefaultApplied)
+        toggleHotKey              = c.value(.toggleHotKey, d.toggleHotKey)
     }
 }
 

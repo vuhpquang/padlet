@@ -8,7 +8,39 @@ import ApplicationServices
 
 enum WindowManager {
 
-    enum Placement { case fill, leftHalf, rightHalf, center }
+    enum Placement {
+        case fill, leftHalf, rightHalf, topHalf, bottomHalf, center
+        case leftThird, centerThird, rightThird, leftTwoThirds, rightTwoThirds
+    }
+
+    /// The target rect for a placement inside a screen's visible area (AX coordinates).
+    static func rect(for placement: Placement, in area: CGRect, current: CGSize) -> CGRect {
+        let third = (area.width / 3).rounded()
+        func column(_ x: CGFloat, _ width: CGFloat) -> CGRect {
+            CGRect(x: x, y: area.minY, width: width, height: area.height)
+        }
+        switch placement {
+        case .fill: return area
+        case .leftHalf: return column(area.minX, (area.width / 2).rounded())
+        case .rightHalf:
+            let w = (area.width / 2).rounded()
+            return column(area.maxX - w, w)
+        case .topHalf:
+            return CGRect(x: area.minX, y: area.minY, width: area.width, height: (area.height / 2).rounded())
+        case .bottomHalf:
+            let h = (area.height / 2).rounded()
+            return CGRect(x: area.minX, y: area.maxY - h, width: area.width, height: h)
+        case .center:
+            let w = min(current.width, area.width)
+            let h = min(current.height, area.height)
+            return CGRect(x: (area.midX - w / 2).rounded(), y: (area.midY - h / 2).rounded(), width: w, height: h)
+        case .leftThird: return column(area.minX, third)
+        case .centerThird: return column(area.minX + third, area.width - 2 * third)
+        case .rightThird: return column(area.maxX - third, third)
+        case .leftTwoThirds: return column(area.minX, area.width - third)
+        case .rightTwoThirds: return column(area.minX + third, area.width - third)
+        }
+    }
 
     // MARK: - Actions
 
@@ -44,19 +76,7 @@ enum WindowManager {
         guard let window = focusedWindow(), let frame = frame(of: window),
               let screen = screen(containing: frame, in: orderedScreens()) else { return }
         let area = axRect(screen.visibleFrame)
-        let new: CGRect
-        switch placement {
-        case .fill:
-            new = area
-        case .leftHalf:
-            new = CGRect(x: area.minX, y: area.minY, width: (area.width / 2).rounded(), height: area.height)
-        case .rightHalf:
-            let w = (area.width / 2).rounded()
-            new = CGRect(x: area.maxX - w, y: area.minY, width: w, height: area.height)
-        case .center:
-            new = CGRect(x: area.midX - frame.width / 2, y: area.midY - frame.height / 2,
-                         width: min(frame.width, area.width), height: min(frame.height, area.height))
-        }
+        let new = rect(for: placement, in: area, current: frame.size)
         setFrame(new, of: window)
     }
 

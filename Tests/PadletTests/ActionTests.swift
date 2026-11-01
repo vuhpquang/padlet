@@ -33,6 +33,8 @@ final class ActionTests: XCTestCase {
 
     func testEveryActionRoundTrips() throws {
         var all: [GestureAction] = [.none, .runShortcut(name: "Focus Mode"),
+                                    .openURL(url: "https://github.com"), .pasteText(text: "Hi,\nthanks!"),
+                                    .runCommand(command: "open -a Notes"),
                                     .keystroke(key: "←", modifiers: [.control, .option]),
                                     .openApp(bundleID: "com.apple.Notes")]
         all += BuiltinAction.allCases.map(GestureAction.builtin)
@@ -88,5 +90,47 @@ final class ActionTests: XCTestCase {
     func testKeyCodesDisplayOrder() {
         XCTAssertEqual(KeyCodes.display(key: "k", modifiers: [.command, .shift, .control, .option]), "⌃⌥⇧⌘K")
         XCTAssertEqual(KeyCodes.display(key: "F5", modifiers: []), "F5")
+    }
+
+    func testCustomActionsKeepValuesWhenRePicked() {
+        for action: GestureAction in [.openURL(url: "x.com"), .pasteText(text: "a"), .runCommand(command: "ls")] {
+            XCTAssertEqual(action.replacing(withPicked: action.pickerValue), action)
+            XCTAssertNotEqual(action.pickerValue, action)
+        }
+    }
+
+    // MARK: Window placements (pure geometry, AX coordinates)
+
+    private let area = CGRect(x: 0, y: 25, width: 1500, height: 900)
+
+    func testHalvesAndThirdsTileTheScreen() {
+        let r = { WindowManager.rect(for: $0, in: self.area, current: CGSize(width: 800, height: 600)) }
+        XCTAssertEqual(r(.leftHalf), CGRect(x: 0, y: 25, width: 750, height: 900))
+        XCTAssertEqual(r(.rightHalf), CGRect(x: 750, y: 25, width: 750, height: 900))
+        XCTAssertEqual(r(.topHalf), CGRect(x: 0, y: 25, width: 1500, height: 450))
+        XCTAssertEqual(r(.bottomHalf), CGRect(x: 0, y: 475, width: 1500, height: 450))
+        XCTAssertEqual(r(.leftThird).width + r(.centerThird).width + r(.rightThird).width, area.width)
+        XCTAssertEqual(r(.leftThird).maxX, r(.centerThird).minX)
+        XCTAssertEqual(r(.centerThird).maxX, r(.rightThird).minX)
+        XCTAssertEqual(r(.leftTwoThirds).maxX, r(.rightThird).minX)
+        XCTAssertEqual(r(.rightTwoThirds).minX, r(.leftThird).maxX)
+        XCTAssertEqual(r(.fill), area)
+    }
+
+    func testCenterKeepsSizeAndClampsToScreen() {
+        let centered = WindowManager.rect(for: .center, in: area, current: CGSize(width: 800, height: 600))
+        XCTAssertEqual(centered, CGRect(x: 350, y: 175, width: 800, height: 600))
+        let huge = WindowManager.rect(for: .center, in: area, current: CGSize(width: 4000, height: 3000))
+        XCTAssertEqual(huge, area)
+    }
+
+    func testToggleHotKeyDefaultsToNoneAndPersists() throws {
+        let old = try JSONDecoder().decode(GeneralSettings.self, from: Data(#"{"appearance":"dark"}"#.utf8))
+        XCTAssertNil(old.toggleHotKey)
+        var settings = GeneralSettings()
+        settings.toggleHotKey = KeyCombo(key: "p", modifiers: NSEvent.ModifierFlags([.command, .option]).rawValue)
+        let back = try JSONDecoder().decode(GeneralSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(back.toggleHotKey, settings.toggleHotKey)
+        XCTAssertEqual(back.toggleHotKey?.display, "⌥⌘P")
     }
 }

@@ -34,15 +34,21 @@ Actions, grouped in the picker:
 | Group | Actions |
 |---|---|
 | Mouse | Middle Click |
-| System | Mission Control, App Exposé, Show Desktop, Spotlight, Screenshot, Lock Screen |
+| System | Mission Control, App Exposé, Show Desktop, Spotlight, Screenshot, Lock Screen, Toggle Do Not Disturb¹ |
 | Spaces | Previous / Next Space |
-| Windows | Move Window to Next / Previous Display, Fill Screen, Left / Right Half, Center, Minimize, Toggle Full Screen, Close |
+| Windows | Move Window to Next / Previous Display, Fill Screen, Left / Right / Top / Bottom Half, Left / Center / Right Third, Left / Right Two Thirds, Center, Minimize, Toggle Full Screen, Close |
 | Tabs & Navigation | Previous / Next / New / Close / Reopen Tab, Back, Forward |
 | Apps | Switch to Previous App, Quit App |
 | Media | Play / Pause, Next / Previous Track, Mute |
-| Custom | Keyboard Shortcut (click and press the keys), Open App, Run Shortcut (from the Shortcuts app) |
+| Custom | Keyboard Shortcut (click and press the keys), Open App, Open URL (web or app links), Paste Text (a saved snippet; your clipboard is restored), Run Shortcut (from the Shortcuts app), Run Shell Command (zsh) |
 
 Window actions act on the front window of the app you're using.
+
+¹ macOS only lets apps switch Focus through Shortcuts: create a shortcut named
+“Toggle Do Not Disturb” (Set Focus → Do Not Disturb → Toggle). Padlet walks you through it.
+
+**Turn On / Off Shortcut** — record a system-wide hotkey in Settings → General to switch every
+gesture on or off from any app.
 
 **App profiles** — while a given app is in front, any gesture can do something else
 (e.g. three-finger tap = Next Tab in Safari). Unchanged gestures use your main mapping.

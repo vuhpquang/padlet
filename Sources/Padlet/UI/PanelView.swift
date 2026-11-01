@@ -485,6 +485,12 @@ struct GeneralSection: View {
                             live.refresh()
                         }))
                 }
+                SettingRow(icon: "command", title: "Turn On / Off Shortcut",
+                           subtitle: "Works from any app", active: prefs.general.toggleHotKey != nil,
+                           tinted: false) {
+                    KeyComboRecorder(combo: $prefs.general.toggleHotKey, placeholder: "Record",
+                                     requiresModifier: true)
+                }
                 SettingRow(icon: "sparkles", title: "Welcome Guide",
                            subtitle: "Replay the introduction", active: false, tinted: false) {
                     Button("Show") { NotificationCenter.default.post(name: .padletShowWelcome, object: nil) }

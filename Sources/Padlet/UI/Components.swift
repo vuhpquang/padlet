@@ -343,58 +343,104 @@ struct ActionDetailField: View {
             AppPickerButton(action: $action, currentBundleID: bundleID).controlSize(.small)
         case .runShortcut(let name):
             ShortcutNameField(action: $action, name: name)
+        case .openURL(let url):
+            TextField("https://… or app:// link", text: Binding(get: { url }, set: { action = .openURL(url: $0) }))
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+                .frame(width: 220)
+        case .pasteText(let text):
+            TextField("Text to paste", text: Binding(get: { text }, set: { action = .pasteText(text: $0) }),
+                      axis: .vertical)
+                .lineLimit(1...4)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+                .frame(width: 220)
+        case .runCommand(let command):
+            VStack(alignment: .trailing, spacing: 2) {
+                TextField("open -a Notes", text: Binding(get: { command }, set: { action = .runCommand(command: $0) }))
+                    .font(.system(size: 11, design: .monospaced))
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                    .frame(width: 220)
+                Text("Runs with zsh in your home folder")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+        case .builtin(.toggleDoNotDisturb):
+            HStack(spacing: 4) {
+                Text("Uses the “\(DoNotDisturb.shortcutName)” shortcut")
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
+                Button("Set Up\u{2026}") { DoNotDisturb.showSetupHelp() }
+                    .buttonStyle(.link)
+                    .font(.system(size: 10.5))
+            }
         default:
             EmptyView()
         }
     }
 }
 
-/// Click, then press a key combination. Esc cancels, ⌫ clears.
+/// A keystroke action's recorder.
 struct ShortcutRecorder: View {
     @Binding var action: GestureAction
+
+    var body: some View {
+        if case .keystroke(let key, let modifiers) = action {
+            KeyComboRecorder(combo: Binding(
+                get: { key.isEmpty ? nil : KeyCombo(key: key, modifiers: modifiers.rawValue) },
+                set: { action = .keystroke(key: $0?.key ?? "", modifiers: $0?.flags ?? []) }))
+        }
+    }
+}
+
+/// Click, then press a key combination. Esc cancels, ⌫ clears.
+struct KeyComboRecorder: View {
+    @Binding var combo: KeyCombo?
+    var placeholder = "Record Shortcut"
+    /// Global hotkeys must include ⌘, ⌃ or ⌥ so they don't swallow normal typing.
+    var requiresModifier = false
     @State private var recording = false
     @State private var monitor: Any?
 
     var body: some View {
-        if case .keystroke(let key, let modifiers) = action {
-            HStack(spacing: 6) {
-                Button {
-                    recording ? stop() : start()
-                } label: {
-                    Text(recording ? "Type a shortcut\u{2026}"
-                         : key.isEmpty ? "Record Shortcut" : KeyCodes.display(key: key, modifiers: modifiers))
-                        .font(.system(size: 12, weight: key.isEmpty || recording ? .regular : .semibold,
-                                      design: key.isEmpty || recording ? .default : .rounded))
-                        .frame(minWidth: 110)
-                }
-                .controlSize(.small)
-                .tint(recording ? Theme.accent : nil)
-                .buttonStyle(.bordered)
-                .help("Click, then press the keys. Esc cancels.")
-                if !key.isEmpty && !recording {
-                    Button { action = .keystroke(key: "", modifiers: []) } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Clear")
-                }
+        HStack(spacing: 6) {
+            Button {
+                recording ? stop() : start()
+            } label: {
+                Text(recording ? "Type a shortcut\u{2026}" : combo?.display ?? placeholder)
+                    .font(.system(size: 12, weight: combo == nil || recording ? .regular : .semibold,
+                                  design: combo == nil || recording ? .default : .rounded))
+                    .frame(minWidth: 110)
             }
-            .onDisappear(perform: stop)
+            .controlSize(.small)
+            .tint(recording ? Theme.accent : nil)
+            .buttonStyle(.bordered)
+            .help("Click, then press the keys. Esc cancels.")
+            if combo != nil && !recording {
+                Button { combo = nil } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear")
+            }
         }
+        .onDisappear(perform: stop)
     }
 
     private func start() {
         recording = true
+        GlobalHotKey.shared.paused = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
             if mods.isEmpty && event.keyCode == 53 { stop(); return nil }            // Esc
-            if mods.isEmpty && event.keyCode == 51 {                                 // ⌫
-                action = .keystroke(key: "", modifiers: [])
-                stop()
+            if mods.isEmpty && event.keyCode == 51 { combo = nil; stop(); return nil } // ⌫
+            if requiresModifier && mods.intersection([.command, .control, .option]).isEmpty {
+                NSSound.beep()
                 return nil
             }
             if let name = KeyCodes.name(for: event.keyCode) {
-                action = .keystroke(key: name, modifiers: mods)
+                combo = KeyCombo(key: name, modifiers: mods.rawValue)
                 stop()
             }
             return nil
@@ -405,6 +451,7 @@ struct ShortcutRecorder: View {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         recording = false
+        GlobalHotKey.shared.paused = false
     }
 }
 
