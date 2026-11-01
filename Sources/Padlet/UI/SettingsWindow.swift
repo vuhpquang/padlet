@@ -179,10 +179,21 @@ struct SettingsView: View {
             }
             if !live.accessibilityGranted {
                 Card(padding: 12) {
-                    SettingRow(icon: "exclamationmark.triangle.fill", title: "Accessibility access needed",
-                               subtitle: "Padlet can't see the trackpad until you allow it",
-                               active: true, color: .orange) {
-                        Button("Open Settings") { openAccessibilitySettings() }.controlSize(.small)
+                    VStack(alignment: .leading, spacing: 8) {
+                        SettingRow(icon: "exclamationmark.triangle.fill", title: "Accessibility access needed",
+                                   subtitle: "Padlet can't see the trackpad until you allow it",
+                                   active: true, color: .orange) {
+                            Button("Open Settings") { openAccessibilitySettings() }.controlSize(.small)
+                        }
+                        HStack(spacing: 6) {
+                            Text("Padlet is already switched on there but still asks?")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            Button("Reset & Ask Again") { PermissionsManager().resetAndRequest() }
+                                .buttonStyle(.link)
+                                .font(.system(size: 11))
+                        }
+                        .padding(.leading, 40)
                     }
                 }
             }

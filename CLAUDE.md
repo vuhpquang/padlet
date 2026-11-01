@@ -62,6 +62,15 @@ paused while a recorder listens.
   AGENTS.md/CLAUDE.md/.claude here). Assess blast radius with grep.
 - Accessibility permission is keyed to the code signature. A build with a different signer
   (ad-hoc, another cert) loses the grant and can't auto-update installed copies.
+  The old entry stays in the list, shown as on, but it doesn't match. tccd logs
+  "Failed to match existing code requirement", and the UI often won't remove it. Fix:
+  `tccutil reset Accessibility com.vuhpquang.padlet` (the app has a "Reset & Ask Again"
+  button in Settings → General for this), then relaunch and grant again.
+- Replacing `/Applications/Padlet.app` doesn't change the process that is already running.
+  If that process was granted access, the grant belongs to its signature. Quit it before
+  swapping builds that are signed differently.
+- In this shell `log` is overridden by a zsh function. Use `/usr/bin/log show …` to read
+  tccd and app logs.
 
 ## Signing
 
