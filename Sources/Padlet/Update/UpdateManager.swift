@@ -20,6 +20,7 @@
 import AppKit
 import Combine
 import Foundation
+import Security
 import ServiceManagement
 
 final class UpdateManager: ObservableObject {
@@ -207,10 +208,40 @@ final class UpdateManager: ObservableObject {
         } catch {
             throw UpdateError("The update's signature is invalid")
         }
+        guard Self.satisfiesOwnSigner(newApp) else {
+            throw UpdateError("The update isn't signed by the same developer")
+        }
 
         let staged = work.appendingPathComponent(appName)
         try Self.run("/usr/bin/ditto", [newApp.path, staged.path])
         return staged
+    }
+
+    /// When this copy is signed with a certificate (Developer ID or the self-signed release
+    /// identity), the update must satisfy this copy's designated requirement — i.e. come
+    /// from the same signer. Ad-hoc builds have no signer to pin, so they skip this check.
+    static func satisfiesOwnSigner(_ candidate: URL) -> Bool {
+        var me: SecCode?
+        guard SecCodeCopySelf([], &me) == errSecSuccess, let me else { return true }
+        var staticMe: SecStaticCode?
+        guard SecCodeCopyStaticCode(me, [], &staticMe) == errSecSuccess, let staticMe else { return true }
+
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(staticMe, SecCSFlags(rawValue: kSecCSSigningInformation), &info)
+                == errSecSuccess,
+              let certs = (info as? [String: Any])?[kSecCodeInfoCertificates as String] as? [Any],
+              !certs.isEmpty else {
+            return true   // ad-hoc or unsigned (development build)
+        }
+
+        var requirement: SecRequirement?
+        guard SecCodeCopyDesignatedRequirement(staticMe, [], &requirement) == errSecSuccess,
+              let requirement else { return false }
+        var other: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(candidate as CFURL, [], &other) == errSecSuccess,
+              let other else { return false }
+        return SecStaticCodeCheckValidity(other, SecCSFlags(rawValue: kSecCSCheckAllArchitectures),
+                                          requirement) == errSecSuccess
     }
 
     /// Hands the swap to a detached script, then quits so the bundle can be replaced.

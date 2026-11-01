@@ -4,9 +4,15 @@
 # and optionally notarizes.
 #
 # USAGE:
-#   ./build.sh                  # Build + DMG (ad-hoc signed, local use only)
+#   ./build.sh                  # Build + DMG, signed with "Padlet Self-Signed" if that
+#                               # identity is in the keychain, otherwise ad-hoc
 #   TEAM_ID="Developer ID Application: Name (ID)" ./build.sh   # Developer ID signed
 #   NOTARIZE=1 TEAM_ID="..." ./build.sh                         # Signed + notarized
+#
+# Why a self-signed identity: an ad-hoc signature changes with every build, so macOS
+# forgets the Accessibility grant after each update. A self-signed certificate gives a
+# stable designated requirement ("certificate root = H…"), so the grant survives updates.
+# It does not satisfy Gatekeeper — only a Developer ID + notarization does.
 
 set -euo pipefail
 
@@ -16,7 +22,14 @@ APP_BUNDLE="${APP_NAME}.app"
 BUILD_DIR="$(pwd)/build"
 APP_PATH="${BUILD_DIR}/${APP_BUNDLE}"
 DMG_PATH="${BUILD_DIR}/${BINARY_NAME}.dmg"
-TEAM_ID="${TEAM_ID:--}"          # "-" = ad-hoc signing (works locally)
+SELF_SIGNED_IDENTITY="Padlet Self-Signed"
+if [[ -z "${TEAM_ID:-}" ]]; then
+    if security find-identity -p codesigning 2>/dev/null | grep -q "\"${SELF_SIGNED_IDENTITY}\""; then
+        TEAM_ID="${SELF_SIGNED_IDENTITY}"
+    else
+        TEAM_ID="-"              # "-" = ad-hoc signing (works locally)
+    fi
+fi
 NOTARYTOOL_PROFILE="${NOTARYTOOL_PROFILE:-Padlet}"
 NOTARIZE="${NOTARIZE:-0}"
 
@@ -86,23 +99,34 @@ codesign --verify --deep --strict "${APP_PATH}"
 echo "==> Signature OK."
 
 # ── STEP 4: Create DMG ─────────────────────────────────────
-# The DMG contains the signed .app and a symlink to /Applications so users can
-# drag-and-drop to install.
+# A styled DMG: background art (scripts/make-dmg-background.swift → packaging/), the app
+# on the left and an Applications shortcut on the right. dmgbuild writes the Finder
+# layout (.DS_Store) directly, so no Finder/AppleScript automation is needed. It runs
+# from a private venv under .build/. If it can't be installed, fall back to a plain DMG.
 echo "==> Creating DMG…"
-STAGING="${BUILD_DIR}/dmg_staging"
-mkdir -p "${STAGING}"
-cp -R "${APP_PATH}" "${STAGING}/"
-ln -s /Applications "${STAGING}/Applications"
+DMGBUILD_VENV="$(pwd)/.build/dmgbuild-venv"
+if [[ ! -x "${DMGBUILD_VENV}/bin/dmgbuild" ]]; then
+    python3 -m venv "${DMGBUILD_VENV}" >/dev/null 2>&1 \
+        && "${DMGBUILD_VENV}/bin/pip" install --quiet --disable-pip-version-check dmgbuild >/dev/null 2>&1 \
+        || true
+fi
 
-hdiutil create \
-    -volname "${APP_NAME}" \
-    -srcfolder "${STAGING}" \
-    -fs HFS+ \
-    -format UDZO \
-    -ov \
-    "${DMG_PATH}"
-
-rm -rf "${STAGING}"
+if [[ -x "${DMGBUILD_VENV}/bin/dmgbuild" ]]; then
+    "${DMGBUILD_VENV}/bin/dmgbuild" \
+        -s scripts/dmg-settings.py \
+        -D app="${APP_PATH}" \
+        -D background="$(pwd)/packaging/dmg-background.png" \
+        "${APP_NAME}" "${DMG_PATH}"
+else
+    echo "    (dmgbuild unavailable — building a plain DMG without background)"
+    STAGING="${BUILD_DIR}/dmg_staging"
+    mkdir -p "${STAGING}"
+    cp -R "${APP_PATH}" "${STAGING}/"
+    ln -s /Applications "${STAGING}/Applications"
+    hdiutil create -volname "${APP_NAME}" -srcfolder "${STAGING}" \
+        -fs HFS+ -format UDZO -ov "${DMG_PATH}"
+    rm -rf "${STAGING}"
+fi
 echo "==> DMG created: ${DMG_PATH}"
 
 # ── STEP 5 (optional): Notarize ────────────────────────────

@@ -45,9 +45,11 @@ and automatic updates from GitHub Releases.
 ## Install
 
 1. Download `Padlet.dmg` from [Releases](https://github.com/vuhpquang/mac-shortcuts/releases) and drag **Padlet** to Applications.
-2. Open it. The welcome guide walks you through granting **Accessibility** access
+2. Open it. Padlet isn't notarized by Apple, so the first launch may be blocked: open
+   System Settings → Privacy & Security and click **Open Anyway**.
+3. The welcome guide walks you through granting **Accessibility** access
    (System Settings → Privacy & Security → Accessibility → Padlet).
-3. Padlet lives in the menu bar — there is no Dock icon.
+4. Padlet lives in the menu bar — there is no Dock icon.
 
 Requires macOS 13 Ventura or later and a Force Touch trackpad (built-in or Magic Trackpad).
 
@@ -69,9 +71,19 @@ swift test                   # unit tests (recognizers, settings, migration)
 swift scripts/make-icon.swift Sources/Padlet/Resources/AppIcon.png   # regenerate the icon
 ```
 
-`TEAM_ID="Developer ID Application: …" ./build.sh` signs with a real certificate;
-add `NOTARIZE=1` to notarize. Ad-hoc builds work locally, but macOS asks for Accessibility
-again after every rebuild/update.
+**Signing.** `build.sh` signs with the **Padlet Self-Signed** identity when it is in the
+keychain, otherwise ad-hoc. The self-signed certificate keeps the app's designated
+requirement stable, so the Accessibility grant survives updates, and the updater only
+accepts a new version signed by the same certificate. Ad-hoc builds lose the grant on every
+rebuild. To sign on another Mac, import the backed-up identity:
+`security import padlet-signing.p12 -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign`.
+`TEAM_ID="Developer ID Application: …" ./build.sh` signs with a real Apple certificate;
+add `NOTARIZE=1` to notarize (the only way past Gatekeeper without "Open Anyway").
+
+**DMG.** The background is drawn by `scripts/make-dmg-background.swift` into `packaging/`;
+the Finder layout is in `scripts/dmg-settings.py` and written by
+[dmgbuild](https://github.com/dmgbuild/dmgbuild), which `build.sh` installs into a private
+venv under `.build/`.
 
 DEBUG builds have two hooks:
 
@@ -100,6 +112,10 @@ Logs go to the unified log: `log stream --predicate 'subsystem == "com.vuhpquang
 
 ### Releasing
 
-Bump `CFBundleShortVersionString` in `Sources/Padlet/Resources/Info.plist`, run `./build.sh`,
-then publish a GitHub release whose tag is the version (e.g. `v2.0.1`) with `Padlet.dmg`
-attached. Installed copies pick it up within six hours.
+1. Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Sources/Padlet/Resources/Info.plist`.
+2. `./build.sh` (with the self-signed identity in the keychain — check the log says
+   `Code-signing Padlet.app with: Padlet Self-Signed`).
+3. `gh release create v2.0.1 build/Padlet.dmg -R vuhpquang/mac-shortcuts --target develop --title "Padlet 2.0.1" --notes "…"`.
+   Installed copies pick it up within six hours.
+4. Homebrew: set `version` and `sha256` (`shasum -a 256 build/Padlet.dmg`) in
+   `packaging/homebrew/padlet.rb` and copy it to `Casks/padlet.rb` in `vuhpquang/homebrew-tap`.
