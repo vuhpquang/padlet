@@ -61,8 +61,8 @@ lower-25%-only mode, require Fn/⌥, adjustable edge width and sensitivity, palm
 
 **Where things are** — left-click the menu bar icon for the quick panel, right-click for quick
 switches. **Settings…** (⌘,) opens the full Settings window. While it is open, Padlet has a
-Dock icon and a menu bar, where **Padlet → About Padlet** shows the version and author and
-lets you check for updates.
+Dock icon and a menu bar, where **Padlet → About Padlet** opens the About & Updates page (version,
+author, update check and update settings).
 
 ## Install
 

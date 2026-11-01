@@ -66,8 +66,6 @@ enum PanelSnapshot {
             SettingsRouter.shared.profile = sample.id
             render(SettingsView(), appearance: appearance,
                    to: dir.appendingPathComponent("settings-profile-\(mode).png"))
-            render(AboutView(updates: UpdateManager.shared).padding(28).frame(width: 420),
-                   appearance: appearance, to: dir.appendingPathComponent("about-\(mode).png"))
         }
         SettingsRouter.shared.pane = .general
         SettingsRouter.shared.profile = nil

@@ -35,8 +35,11 @@ Homebrew cask source.
 - Menu bar panel (`UI/PanelView.swift`, left click): quick controls. Its sections
   (`EdgeControlsSection`, `GesturesSection`, `EdgeBehaviorSection`, `GeneralSection`,
   `UpdatesSection`, `ProfilesPage`, `ProfileDetailPage`) are shared with the Settings window.
-- Settings window + About window (`UI/SettingsWindow.swift`, `AppWindows`): while one is open
-  the app switches to `.regular` (Dock icon + `AppMenu`), then back to `.accessory`.
+- Settings window (`UI/SettingsWindow.swift`, `AppWindows`). Panes: General, Edge Controls,
+  Gestures, App Profiles, About & Updates. "About Padlet" everywhere opens the About & Updates
+  pane, so there is no separate About window. While the window is open the app is `.regular`
+  (Dock icon + `AppMenu`: About / Check for Updates / Settings ⌘,), then goes back to
+  `.accessory`.
 - Right-click quick menu (`App/MenuBarController.swift` + `UI/QuickMenuView.swift`).
 
 ## Actions

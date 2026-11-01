@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Panes
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, edges, gestures, profiles, updates, about
+    case general, edges, gestures, profiles, about
     var id: String { rawValue }
 
     var title: String {
@@ -19,8 +19,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .edges: return "Edge Controls"
         case .gestures: return "Gestures"
         case .profiles: return "App Profiles"
-        case .updates: return "Updates"
-        case .about: return "About"
+        case .about: return "About & Updates"
         }
     }
 
@@ -30,7 +29,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .edges: return "rectangle.lefthalf.inset.filled"
         case .gestures: return "hand.raised.fingers.spread.fill"
         case .profiles: return "square.stack.3d.up.fill"
-        case .updates: return "arrow.triangle.2.circlepath"
         case .about: return "info.circle.fill"
         }
     }
@@ -41,7 +39,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .edges: return Color(red: 0.19, green: 0.65, blue: 1.0)
         case .gestures: return Theme.accent
         case .profiles: return Color(red: 1.0, green: 0.55, blue: 0.1)
-        case .updates: return Color(red: 0.2, green: 0.75, blue: 0.45)
         case .about: return Color(red: 0.55, green: 0.45, blue: 1.0)
         }
     }
@@ -95,7 +92,7 @@ struct SettingsView: View {
             .padding(.bottom, 12)
 
             ForEach(SettingsPane.allCases) { pane in
-                if pane == .updates { Spacer().frame(height: 10) }
+                if pane == .about { Spacer().frame(height: 10) }
                 Button {
                     router.profile = nil
                     router.pane = pane
@@ -110,7 +107,7 @@ struct SettingsView: View {
                         .frame(width: 22, height: 22)
                         Text(pane.title).font(.system(size: 13))
                         Spacer()
-                        if pane == .updates, case .available = updates.state {
+                        if pane == .about, case .available = updates.state {
                             Circle().fill(Color.red).frame(width: 7, height: 7)
                         }
                     }
@@ -139,8 +136,12 @@ struct SettingsView: View {
             case .edges: edgesPane
             case .gestures: gesturesPane
             case .profiles: profilesPane
-            case .updates: UpdatesSection(prefs: prefs, updates: updates, showsHeader: false)
-            case .about: AboutView(updates: updates)
+            case .about:
+                VStack(alignment: .leading, spacing: 18) {
+                    AboutView(updates: updates)
+                    Divider()
+                    UpdatesSection(prefs: prefs, updates: updates, showsStatus: false)
+                }
             }
         }
     }
@@ -342,7 +343,7 @@ struct AboutView: View {
 
 // MARK: - Windows
 
-/// Owns the Settings and About windows. While any Padlet window is open the app becomes a
+/// Owns the Settings window (About is one of its panes). While any Padlet window is open the app becomes a
 /// regular app (Dock icon + "Padlet" menu); when the last one closes it goes back to the
 /// menu bar only.
 final class AppWindows: NSObject, NSWindowDelegate {
@@ -350,7 +351,6 @@ final class AppWindows: NSObject, NSWindowDelegate {
     static let shared = AppWindows()
 
     private var settingsWindow: NSWindow?
-    private var aboutWindow: NSWindow?
     private var cancellables: Set<AnyCancellable> = []
 
     private override init() {
@@ -379,30 +379,8 @@ final class AppWindows: NSObject, NSWindowDelegate {
         present(settingsWindow)
     }
 
-    func showAbout() {
-        if aboutWindow == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 470),
-                             styleMask: [.titled, .closable, .fullSizeContentView],
-                             backing: .buffered, defer: false)
-            w.titlebarAppearsTransparent = true
-            w.titleVisibility = .hidden
-            w.isMovableByWindowBackground = true
-            let hosting = NSHostingView(rootView:
-                AboutView(updates: UpdateManager.shared)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 34)
-                    .padding(.bottom, 22)
-                    .frame(width: 420)
-                    .tint(Theme.accent))
-            w.contentView = hosting
-            w.setContentSize(hosting.fittingSize)
-            w.isReleasedWhenClosed = false
-            w.delegate = self
-            w.center()
-            aboutWindow = w
-        }
-        present(aboutWindow)
-    }
+    /// About lives in the Settings window (About & Updates pane).
+    func showAbout() { showSettings(.about) }
 
     private func present(_ window: NSWindow?) {
         NSApp.setActivationPolicy(.regular)
@@ -413,9 +391,8 @@ final class AppWindows: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         let closing = notification.object as? NSWindow
         DispatchQueue.main.async {
-            let anyOpen = [self.settingsWindow, self.aboutWindow]
-                .contains { $0 != nil && $0 !== closing && $0?.isVisible == true }
-            if !anyOpen { NSApp.setActivationPolicy(.accessory) }
+            if self.settingsWindow !== closing || closing == nil { return }
+            NSApp.setActivationPolicy(.accessory)
         }
     }
 }

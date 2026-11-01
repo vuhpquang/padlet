@@ -507,6 +507,8 @@ struct UpdatesSection: View {
     @ObservedObject var updates: UpdateManager
 
     var showsHeader = true
+    /// The About pane shows the status itself, so it hides this row.
+    var showsStatus = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -523,7 +525,7 @@ struct UpdatesSection: View {
                     SwitchToggle(isOn: $prefs.general.autoInstallUpdates)
                 }
                 .disabled(!prefs.general.autoCheckUpdates)
-                UpdateStatusRow(updates: updates)
+                if showsStatus { UpdateStatusRow(updates: updates) }
             }
         }
     }
