@@ -29,6 +29,18 @@ final class MenuBarController: NSObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.render(enabled: $0.masterEnabled) }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .padletShowSettingsWindow)
+            .sink { [weak self] _ in
+                self?.popover.performClose(nil)
+                AppWindows.shared.showSettings()
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .padletShowAbout)
+            .sink { [weak self] _ in
+                self?.popover.performClose(nil)
+                AppWindows.shared.showAbout()
+            }
+            .store(in: &cancellables)
         NotificationCenter.default.publisher(for: .padletShowWelcome)
             .sink { [weak self] _ in
                 self?.popover.performClose(nil)
@@ -64,14 +76,15 @@ final class MenuBarController: NSObject {
         menu.addItem(.separator())
 
         addItem("Open Padlet", symbol: "rectangle.on.rectangle", key: "o") { [weak self] in self?.showPanel(.main) }
-        addItem("App Profiles\u{2026}", symbol: "square.stack.3d.up", key: "p") { [weak self] in self?.showPanel(.profiles) }
-        addItem("Settings\u{2026}", symbol: "gearshape", key: ",") { [weak self] in self?.showPanel(.settings) }
+        addItem("App Profiles\u{2026}", symbol: "square.stack.3d.up", key: "p") { AppWindows.shared.showSettings(.profiles) }
+        addItem("Settings\u{2026}", symbol: "gearshape", key: ",") { AppWindows.shared.showSettings() }
         menu.addItem(.separator())
-        addItem("Welcome Guide\u{2026}", symbol: "sparkles") { [weak self] in self?.onShowWelcome?() }
-        addItem("Check for Updates\u{2026}", symbol: "arrow.triangle.2.circlepath") { [weak self] in
+        addItem("About Padlet", symbol: "info.circle") { AppWindows.shared.showAbout() }
+        addItem("Check for Updates\u{2026}", symbol: "arrow.triangle.2.circlepath") {
             UpdateManager.shared.check(userInitiated: true)
-            self?.showPanel(.settings)
+            AppWindows.shared.showAbout()
         }
+        addItem("Welcome Guide\u{2026}", symbol: "sparkles") { [weak self] in self?.onShowWelcome?() }
         menu.addItem(.separator())
         addItem("Quit Padlet", symbol: "power", key: "q") { NSApp.terminate(nil) }
     }

@@ -247,10 +247,28 @@ struct Card<Content: View>: View {
 
 // MARK: - Action pickers
 
-/// A gesture label with a compact action picker; extra input (key / app) appears below.
+/// The picker's rows: None, built-ins grouped by category, then the custom actions.
+struct ActionMenuItems: View {
+    var body: some View {
+        Text("None").tag(GestureAction.none)
+        ForEach(BuiltinAction.Group.allCases, id: \.self) { group in
+            Section(group.rawValue) {
+                ForEach(BuiltinAction.cases(in: group), id: \.self) { builtin in
+                    Text(builtin.title).tag(GestureAction.builtin(builtin))
+                }
+            }
+        }
+        Section("Custom") {
+            ForEach(GestureAction.customCases, id: \.self) { Text($0.displayName).tag($0) }
+        }
+    }
+}
+
+/// A gesture label with a compact action picker; extra input (key / app / shortcut) appears below.
 struct ActionPickerRow: View {
     let label: String
     @Binding var action: GestureAction
+    var pickerWidth: CGFloat = 170
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -262,12 +280,12 @@ struct ActionPickerRow: View {
                 Picker("", selection: Binding(
                     get: { action.pickerValue },
                     set: { action = action.replacing(withPicked: $0) })) {
-                    ForEach(GestureAction.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    ActionMenuItems()
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .controlSize(.small)
-                .frame(width: 150)
+                .frame(width: pickerWidth)
             }
             ActionDetailField(action: $action)
         }
@@ -279,6 +297,7 @@ struct OverridePickerRow: View {
     let label: String
     let defaultAction: GestureAction
     @Binding var override: GestureAction?
+    var pickerWidth: CGFloat = 170
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -287,72 +306,164 @@ struct OverridePickerRow: View {
                     .font(.system(size: 12.5))
                     .foregroundColor(override == nil ? .secondary : .primary)
                 Spacer()
-                Picker("", selection: Binding<GestureAction?>(
-                    get: { override?.pickerValue },
+                Picker("", selection: Binding<GestureAction>(
+                    get: { override?.pickerValue ?? Self.useDefault },
                     set: { picked in
-                        guard let picked = picked else { override = nil; return }
+                        guard picked != Self.useDefault else { override = nil; return }
                         override = (override ?? picked).replacing(withPicked: picked)
                     })) {
-                    Text("Default (\(defaultAction.displayName.replacingOccurrences(of: "\u{2026}", with: "")))")
-                        .tag(GestureAction?.none)
+                    Text("Default (\(defaultAction.summary))").tag(Self.useDefault)
                     Divider()
-                    ForEach(GestureAction.allCases, id: \.self) { Text($0.displayName).tag(Optional($0)) }
+                    ActionMenuItems()
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .controlSize(.small)
-                .frame(width: 170)
+                .frame(width: pickerWidth)
             }
             if override != nil {
                 ActionDetailField(action: Binding(get: { override ?? .none }, set: { override = $0 }))
             }
         }
     }
+
+    /// Sentinel tag for "use the default" (an empty shortcut name never reaches storage).
+    private static let useDefault = GestureAction.runShortcut(name: "\u{0}default")
 }
 
-/// The key field / app chooser for Keystroke… and Open App… actions.
+/// The extra input for Keyboard Shortcut…, Open App… and Run Shortcut… actions.
 struct ActionDetailField: View {
     @Binding var action: GestureAction
 
     var body: some View {
         switch action {
         case .keystroke:
-            KeystrokeField(action: $action)
+            ShortcutRecorder(action: $action)
         case .openApp(let bundleID):
             AppPickerButton(action: $action, currentBundleID: bundleID).controlSize(.small)
+        case .runShortcut(let name):
+            ShortcutNameField(action: $action, name: name)
         default:
             EmptyView()
         }
     }
 }
 
-struct KeystrokeField: View {
+/// Click, then press a key combination. Esc cancels, ⌫ clears.
+struct ShortcutRecorder: View {
     @Binding var action: GestureAction
-
-    private let modifierOptions: [(String, NSEvent.ModifierFlags)] =
-        [("⌘", .command), ("⇧", .shift), ("⌥", .option), ("⌃", .control)]
+    @State private var recording = false
+    @State private var monitor: Any?
 
     var body: some View {
         if case .keystroke(let key, let modifiers) = action {
-            HStack(spacing: 4) {
-                ForEach(modifierOptions, id: \.0) { symbol, flag in
-                    Toggle(symbol, isOn: Binding(
-                        get: { modifiers.contains(flag) },
-                        set: { on in
-                            var m = modifiers
-                            if on { m.insert(flag) } else { m.remove(flag) }
-                            action = .keystroke(key: key, modifiers: m)
-                        }))
-                    .toggleStyle(.button)
-                    .controlSize(.small)
+            HStack(spacing: 6) {
+                Button {
+                    recording ? stop() : start()
+                } label: {
+                    Text(recording ? "Type a shortcut\u{2026}"
+                         : key.isEmpty ? "Record Shortcut" : KeyCodes.display(key: key, modifiers: modifiers))
+                        .font(.system(size: 12, weight: key.isEmpty || recording ? .regular : .semibold,
+                                      design: key.isEmpty || recording ? .default : .rounded))
+                        .frame(minWidth: 110)
                 }
-                TextField("key", text: Binding(
-                    get: { key },
-                    set: { action = .keystroke(key: String($0.suffix(1)), modifiers: modifiers) }))
-                    .frame(width: 34)
-                    .textFieldStyle(.roundedBorder)
-                    .controlSize(.small)
-                    .multilineTextAlignment(.center)
+                .controlSize(.small)
+                .tint(recording ? Theme.accent : nil)
+                .buttonStyle(.bordered)
+                .help("Click, then press the keys. Esc cancels.")
+                if !key.isEmpty && !recording {
+                    Button { action = .keystroke(key: "", modifiers: []) } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear")
+                }
+            }
+            .onDisappear(perform: stop)
+        }
+    }
+
+    private func start() {
+        recording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
+            if mods.isEmpty && event.keyCode == 53 { stop(); return nil }            // Esc
+            if mods.isEmpty && event.keyCode == 51 {                                 // ⌫
+                action = .keystroke(key: "", modifiers: [])
+                stop()
+                return nil
+            }
+            if let name = KeyCodes.name(for: event.keyCode) {
+                action = .keystroke(key: name, modifiers: mods)
+                stop()
+            }
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        recording = false
+    }
+}
+
+/// A shortcut name with a menu of the shortcuts installed in the Shortcuts app.
+struct ShortcutNameField: View {
+    @Binding var action: GestureAction
+    let name: String
+    @State private var available: [String] = []
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField("Shortcut name", text: Binding(get: { name }, set: { action = .runShortcut(name: $0) }))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 140)
+            Menu {
+                if available.isEmpty { Text("No shortcuts found") }
+                ForEach(available, id: \.self) { item in
+                    Button(item) { action = .runShortcut(name: item) }
+                }
+                Divider()
+                Button("Open Shortcuts") {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Shortcuts.app"))
+                }
+            } label: {
+                Image(systemName: "list.bullet")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Choose from your shortcuts")
+        }
+        .controlSize(.small)
+        .onAppear { ShortcutsLibrary.load { available = $0 } }
+    }
+}
+
+/// Names of the user's shortcuts, read once via `shortcuts list`.
+enum ShortcutsLibrary {
+    private static var cache: [String]?
+
+    static func load(_ completion: @escaping ([String]) -> Void) {
+        if let cache { completion(cache); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+            task.arguments = ["list"]
+            let pipe = Pipe()
+            task.standardOutput = pipe
+            task.standardError = FileHandle.nullDevice
+            var names: [String] = []
+            if (try? task.run()) != nil {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                task.waitUntilExit()
+                names = String(decoding: data, as: UTF8.self)
+                    .split(separator: "\n").map(String.init).filter { !$0.isEmpty }.sorted()
+            }
+            DispatchQueue.main.async {
+                cache = names
+                completion(names)
             }
         }
     }

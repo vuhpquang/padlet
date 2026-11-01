@@ -11,6 +11,9 @@ final class FrontmostAppTracker: ObservableObject {
 
     @Published private(set) var lastExternalApp: AppInfo?
 
+    /// Recently active regular apps, most recent first (Padlet excluded).
+    private var recent: [NSRunningApplication] = []
+
     private var cancellable: AnyCancellable?
 
     private init() {
@@ -26,5 +29,20 @@ final class FrontmostAppTracker: ObservableObject {
         guard let app = app, let id = app.bundleIdentifier, id != Bundle.main.bundleIdentifier,
               app.activationPolicy == .regular else { return }
         lastExternalApp = AppInfo(bundleID: id, name: app.localizedName)
+        recent.removeAll { $0.processIdentifier == app.processIdentifier || $0.isTerminated }
+        recent.insert(app, at: 0)
+        if recent.count > 8 { recent.removeLast(recent.count - 8) }
+    }
+
+    /// Brings back the app that was in front before the current one (like a quick ⌘⇥).
+    func activatePreviousApp() {
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        recent.removeAll { $0.isTerminated }
+        guard let target = recent.first(where: { $0.processIdentifier != front }) else { return }
+        if #available(macOS 14.0, *) {
+            target.activate()
+        } else {
+            target.activate(options: [.activateIgnoringOtherApps])
+        }
     }
 }

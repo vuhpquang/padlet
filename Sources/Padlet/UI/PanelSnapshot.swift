@@ -32,6 +32,8 @@ enum PanelSnapshot {
         let sample = AppProfile(bundleID: "com.apple.Safari", name: "Safari", overrides: [
             GestureSlot.threeFingerTap.rawValue: .nextTab,
             GestureSlot.topEdgeSwipeLeft.rawValue: .previousTab,
+            GestureSlot.cornerTopRight.rawValue: .builtin(.moveToNextDisplay),
+            GestureSlot.fourFingerTap.rawValue: .keystroke(key: "t", modifiers: [.command, .shift]),
         ])
         let savedProfiles = prefs.profiles
         prefs.profiles = [sample]
@@ -51,7 +53,21 @@ enum PanelSnapshot {
             }
             render(QuickMenuView(), appearance: appearance,
                    to: dir.appendingPathComponent("quickmenu-\(mode).png"))
+            for pane in SettingsPane.allCases {
+                SettingsRouter.shared.pane = pane
+                SettingsRouter.shared.profile = nil
+                render(SettingsView(), appearance: appearance,
+                       to: dir.appendingPathComponent("settings-\(pane.rawValue)-\(mode).png"))
+            }
+            SettingsRouter.shared.pane = .profiles
+            SettingsRouter.shared.profile = sample.id
+            render(SettingsView(), appearance: appearance,
+                   to: dir.appendingPathComponent("settings-profile-\(mode).png"))
+            render(AboutView(updates: UpdateManager.shared).padding(28).frame(width: 420),
+                   appearance: appearance, to: dir.appendingPathComponent("about-\(mode).png"))
         }
+        SettingsRouter.shared.pane = .general
+        SettingsRouter.shared.profile = nil
         PanelRouter.shared.page = .main
     }
 

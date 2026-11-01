@@ -29,8 +29,20 @@ Force Touch actuator, so the strengths really differ).
 | Force click in a corner (4 corners) | Top-left: Mission Control |
 | Quick flick along the top edge ← / → | Previous Space / Next Space |
 
-Actions: Middle Click, Mission Control, App Exposé, Show Desktop, Previous / Next Space,
-Previous / Next Tab, any keystroke (with ⌘⇧⌥⌃), or open an app.
+Actions, grouped in the picker:
+
+| Group | Actions |
+|---|---|
+| Mouse | Middle Click |
+| System | Mission Control, App Exposé, Show Desktop, Spotlight, Screenshot, Lock Screen |
+| Spaces | Previous / Next Space |
+| Windows | Move Window to Next / Previous Display, Fill Screen, Left / Right Half, Center, Minimize, Toggle Full Screen, Close |
+| Tabs & Navigation | Previous / Next / New / Close / Reopen Tab, Back, Forward |
+| Apps | Switch to Previous App, Quit App |
+| Media | Play / Pause, Next / Previous Track, Mute |
+| Custom | Keyboard Shortcut (click and press the keys), Open App, Run Shortcut (from the Shortcuts app) |
+
+Window actions act on the front window of the app you're using.
 
 **App profiles** — while a given app is in front, any gesture can do something else
 (e.g. three-finger tap = Next Tab in Safari). Unchanged gestures use your main mapping.
@@ -38,21 +50,25 @@ Previous / Next Tab, any keystroke (with ⌘⇧⌥⌃), or open an app.
 **Comfort** — freeze the pointer while sliding, ignore edge touches right after typing,
 lower-25%-only mode, require Fn/⌥, adjustable edge width and sensitivity, palm rejection.
 
-**Everything else** — master on/off switch (left-click the menu bar icon for the panel,
-right-click for quick switches), Light / Dark / System appearance, Open at Login (on by default),
-and automatic updates from GitHub Releases.
+**Everything else** — master on/off switch, Light / Dark / System appearance, Open at Login
+(on by default), and automatic updates from GitHub Releases.
+
+**Where things are** — left-click the menu bar icon for the quick panel, right-click for quick
+switches. **Settings…** (⌘,) opens the full Settings window. While it is open, Padlet has a
+Dock icon and a menu bar, where **Padlet → About Padlet** shows the version and author and
+lets you check for updates.
 
 ## Install
 
 **Homebrew**
 
 ```bash
-brew trust vuhpquang/tap                    # Homebrew 7+ only loads casks from trusted taps
 brew install --cask vuhpquang/tap/padlet
 ```
 
-Use the full name: Homebrew's main repository has an unrelated `padlet` cask. Padlet updates
-itself, so `brew upgrade` leaves it alone.
+Use the full name: it also tells Homebrew to trust this one cask (Homebrew refuses to load
+anything from a third-party tap you haven't trusted), and Homebrew's main repository has an
+unrelated `padlet` cask. Padlet updates itself, so `brew upgrade` leaves it alone.
 
 **Manually**
 

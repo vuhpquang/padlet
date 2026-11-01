@@ -2,8 +2,7 @@
 # this copy is the source of truth — update version + sha256 after each release
 # (shasum -a 256 build/Padlet.dmg).
 #
-#   brew trust vuhpquang/tap          # Homebrew 7+ refuses casks from untrusted taps
-#   brew install --cask vuhpquang/tap/padlet
+#   brew install --cask vuhpquang/tap/padlet   # the full name also trusts this cask
 #
 # The fully qualified name matters: the official homebrew/cask already has an unrelated
 # "padlet" cask (padlet.com's desktop app).

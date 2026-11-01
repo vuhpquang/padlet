@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = CursorFreezer.shared
 
         followAppearanceSetting()
+        AppMenu.install(target: self)
         menuBarController = MenuBarController()
         menuBarController.onShowWelcome = { [weak self] in self?.showOnboarding() }
         UpdateManager.shared.startAutomaticChecks()
@@ -57,6 +58,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         GestureCoordinator.shared.stop()
         CursorFreezer.shared.release()
+    }
+
+    // MARK: - App menu actions
+
+    @objc func showAbout(_ sender: Any?) { AppWindows.shared.showAbout() }
+
+    @objc func showSettings(_ sender: Any?) { AppWindows.shared.showSettings() }
+
+    @objc func showWelcome(_ sender: Any?) { showOnboarding() }
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        UpdateManager.shared.check(userInitiated: true)
+        AppWindows.shared.showAbout()
     }
 
     // MARK: - Onboarding

@@ -147,7 +147,14 @@ struct PanelView: View {
             }
             Spacer()
             Menu {
-                Button("Check for Updates\u{2026}") { updates.check(userInitiated: true); router.go(.settings) }
+                Button("Settings Window\u{2026}") {
+                    NotificationCenter.default.post(name: .padletShowSettingsWindow, object: nil)
+                }
+                Button("About Padlet") { NotificationCenter.default.post(name: .padletShowAbout, object: nil) }
+                Button("Check for Updates\u{2026}") {
+                    updates.check(userInitiated: true)
+                    NotificationCenter.default.post(name: .padletShowAbout, object: nil)
+                }
                 Button("Welcome Guide\u{2026}") { NotificationCenter.default.post(name: .padletShowWelcome, object: nil) }
                 Button("Accessibility Settings\u{2026}") { openAccessibilitySettings() }
                 Divider()
@@ -174,6 +181,8 @@ struct PanelView: View {
 
 extension Notification.Name {
     static let padletShowWelcome = Notification.Name("Padlet.showWelcome")
+    static let padletShowSettingsWindow = Notification.Name("Padlet.showSettingsWindow")
+    static let padletShowAbout = Notification.Name("Padlet.showAbout")
 }
 
 // MARK: - Main page
@@ -182,6 +191,30 @@ private struct MainPage: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var live: LiveStatus
     @ObservedObject var updates: UpdateManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if case .available(let version) = updates.state {
+                UpdateBanner(version: version, updates: updates)
+            }
+            LevelsCard(live: live, left: prefs.edge.leftFunction, right: prefs.edge.rightFunction)
+                .opacity(prefs.flags.edgeControls ? 1 : 0.5)
+            EdgeControlsSection(prefs: prefs)
+            Divider()
+            GesturesSection(prefs: prefs)
+            Divider()
+            AppProfilesEntryRow(prefs: prefs) { PanelRouter.shared.go(.profiles) }
+        }
+        .disabled(!prefs.flags.masterEnabled)
+        .opacity(prefs.flags.masterEnabled ? 1 : 0.55)
+    }
+}
+
+// MARK: - Shared sections (panel + Settings window)
+
+/// Edge functions, haptics, quick mute, media strip, sensitivity, edge width.
+struct EdgeControlsSection: View {
+    @ObservedObject var prefs: Preferences
     @State private var expanded: Set<String> = []
 
     private func isExpanded(_ key: String) -> Binding<Bool> {
@@ -191,13 +224,6 @@ private struct MainPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if case .available(let version) = updates.state {
-                UpdateBanner(version: version, updates: updates)
-            }
-
-            LevelsCard(live: live, left: prefs.edge.leftFunction, right: prefs.edge.rightFunction)
-                .opacity(prefs.flags.edgeControls ? 1 : 0.5)
-
             SectionHeader("Edge Controls", isOn: $prefs.flags.edgeControls)
             VStack(spacing: 10) {
                 edgeFunctionRow(left: true)
@@ -252,35 +278,7 @@ private struct MainPage: View {
             }
             .disabled(!prefs.flags.edgeControls)
             .opacity(prefs.flags.edgeControls ? 1 : 0.45)
-
-            Divider()
-            SectionHeader("Gestures")
-            VStack(spacing: 10) {
-                ForEach(GestureFamily.allCases, id: \.self) { family in
-                    familyRow(family)
-                }
-            }
-
-            Divider()
-            SettingRow(icon: "square.stack.3d.up.fill", title: "App Profiles",
-                       subtitle: profilesSubtitle, active: prefs.flags.appProfiles) {
-                HStack(spacing: 8) {
-                    SwitchToggle(isOn: $prefs.flags.appProfiles)
-                    Button { PanelRouter.shared.go(.profiles) } label: {
-                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Edit app profiles")
-                }
-            }
         }
-        .disabled(!prefs.flags.masterEnabled)
-        .opacity(prefs.flags.masterEnabled ? 1 : 0.55)
-    }
-
-    private var profilesSubtitle: String {
-        let n = prefs.profiles.count
-        return n == 0 ? "Different gestures in specific apps" : "\(n) app\(n == 1 ? "" : "s") customized"
     }
 
     private func edgeFunctionRow(left: Bool) -> some View {
@@ -298,6 +296,33 @@ private struct MainPage: View {
             .fixedSize()
         }
     }
+}
+
+/// The gesture families, each expandable to its slot → action pickers.
+struct GesturesSection: View {
+    @ObservedObject var prefs: Preferences
+    var startExpanded = false
+    var pickerWidth: CGFloat = 170
+    @State private var expanded: Set<String> = []
+
+    var showsHeader = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if showsHeader { SectionHeader("Gestures") }
+            VStack(spacing: 10) {
+                ForEach(GestureFamily.allCases, id: \.self) { family in
+                    familyRow(family)
+                }
+            }
+        }
+        .onAppear { if startExpanded { expanded = Set(GestureFamily.allCases.map(\.rawValue)) } }
+    }
+
+    private func isExpanded(_ key: String) -> Binding<Bool> {
+        Binding(get: { expanded.contains(key) },
+                set: { if $0 { expanded.insert(key) } else { expanded.remove(key) } })
+    }
 
     @ViewBuilder
     private func familyRow(_ family: GestureFamily) -> some View {
@@ -310,7 +335,7 @@ private struct MainPage: View {
         if expanded.contains(family.rawValue) {
             VStack(spacing: 4) {
                 ForEach(GestureSlot.slots(in: family)) { slot in
-                    ActionPickerRow(label: slot.shortTitle, action: $prefs.mapping[slot])
+                    ActionPickerRow(label: slot.shortTitle, action: $prefs.mapping[slot], pickerWidth: pickerWidth)
                 }
             }
             .padding(.leading, 40)
@@ -332,8 +357,33 @@ private struct MainPage: View {
             .map { prefs.mapping[$0] }
             .filter { $0 != .none }
         guard !mapped.isEmpty else { return Theme.subtitle(for: family) }
-        return mapped.map { $0.displayName.replacingOccurrences(of: "\u{2026}", with: "") }
+        return mapped.map(\.summary)
             .joined(separator: " · ")
+    }
+}
+
+/// "App Profiles" switch + a chevron that opens the list.
+struct AppProfilesEntryRow: View {
+    @ObservedObject var prefs: Preferences
+    let open: () -> Void
+
+    var body: some View {
+        SettingRow(icon: "square.stack.3d.up.fill", title: "App Profiles",
+                   subtitle: profilesSubtitle, active: prefs.flags.appProfiles) {
+            HStack(spacing: 8) {
+                SwitchToggle(isOn: $prefs.flags.appProfiles)
+                Button(action: open) {
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Edit app profiles")
+            }
+        }
+    }
+
+    private var profilesSubtitle: String {
+        let n = prefs.profiles.count
+        return n == 0 ? "Different gestures in specific apps" : "\(n) app\(n == 1 ? "" : "s") customized"
     }
 }
 
@@ -343,7 +393,30 @@ private struct SettingsPage: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var live: LiveStatus
     @ObservedObject var updates: UpdateManager
-    @State private var loginError: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            EdgeBehaviorSection(prefs: prefs)
+            Divider()
+            GeneralSection(prefs: prefs, live: live)
+            Divider()
+            UpdatesSection(prefs: prefs, updates: updates)
+            Button {
+                NotificationCenter.default.post(name: .padletShowSettingsWindow, object: nil)
+            } label: {
+                Label("Open Settings Window", systemImage: "macwindow")
+            }
+            .buttonStyle(.link)
+            .font(.system(size: 12))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 2)
+        }
+    }
+}
+
+/// Where edges respond and how sliding behaves.
+struct EdgeBehaviorSection: View {
+    @ObservedObject var prefs: Preferences
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -376,9 +449,21 @@ private struct SettingsPage: View {
                           value: $prefs.edge.typingGuardMs, range: 0...1000,
                           label: "\(Int(prefs.edge.typingGuardMs / 10) * 10) ms")
             }
+        }
+    }
+}
 
-            Divider()
-            SectionHeader("General")
+/// Appearance, login item, welcome guide.
+struct GeneralSection: View {
+    @ObservedObject var prefs: Preferences
+    @ObservedObject var live: LiveStatus
+    @State private var loginError: String?
+
+    var showsHeader = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if showsHeader { SectionHeader("General") }
             VStack(spacing: 10) {
                 SettingRow(icon: "circle.lefthalf.filled", title: "Appearance", subtitle: nil,
                            active: false, tinted: false) {
@@ -406,9 +491,20 @@ private struct SettingsPage: View {
                         .controlSize(.small)
                 }
             }
+        }
+    }
+}
 
-            Divider()
-            SectionHeader("Updates")
+/// Automatic update switches and the current status.
+struct UpdatesSection: View {
+    @ObservedObject var prefs: Preferences
+    @ObservedObject var updates: UpdateManager
+
+    var showsHeader = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if showsHeader { SectionHeader("Updates") }
             VStack(spacing: 10) {
                 SettingRow(icon: "arrow.triangle.2.circlepath", title: "Check Automatically",
                            subtitle: "Looks for a new release every 6 hours",
@@ -429,8 +525,9 @@ private struct SettingsPage: View {
 
 // MARK: - Profiles
 
-private struct ProfilesPage: View {
+struct ProfilesPage: View {
     @ObservedObject var prefs: Preferences
+    var open: (UUID) -> Void = { PanelRouter.shared.go(.profile($0)) }
     @ObservedObject private var tracker = FrontmostAppTracker.shared
 
     var body: some View {
@@ -460,7 +557,7 @@ private struct ProfilesPage: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach($prefs.profiles) { $profile in
-                        ProfileRow(profile: $profile)
+                        ProfileRow(profile: $profile, open: open)
                     }
                 }
             }
@@ -481,17 +578,18 @@ private struct ProfilesPage: View {
 
     private func add(_ app: AppInfo) {
         if let existing = prefs.profiles.first(where: { $0.bundleID == app.bundleID }) {
-            PanelRouter.shared.go(.profile(existing.id))
+            open(existing.id)
             return
         }
         let profile = AppProfile(bundleID: app.bundleID, name: app.name)
         prefs.profiles.append(profile)
-        PanelRouter.shared.go(.profile(profile.id))
+        open(profile.id)
     }
 }
 
 private struct ProfileRow: View {
     @Binding var profile: AppProfile
+    let open: (UUID) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -514,13 +612,15 @@ private struct ProfileRow: View {
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
         .contentShape(Rectangle())
-        .onTapGesture { PanelRouter.shared.go(.profile(profile.id)) }
+        .onTapGesture { open(profile.id) }
     }
 }
 
-private struct ProfileDetailPage: View {
+struct ProfileDetailPage: View {
     @ObservedObject var prefs: Preferences
     let profileID: UUID
+    var pickerWidth: CGFloat = 170
+    var close: () -> Void = { PanelRouter.shared.go(.profiles) }
 
     var body: some View {
         if let index = prefs.profiles.firstIndex(where: { $0.id == profileID }) {
@@ -544,7 +644,8 @@ private struct ProfileDetailPage: View {
                         ForEach(GestureSlot.slots(in: family)) { slot in
                             OverridePickerRow(label: slot.shortTitle,
                                               defaultAction: prefs.mapping[slot],
-                                              override: $prefs.profiles[index][slot])
+                                              override: $prefs.profiles[index][slot],
+                                              pickerWidth: pickerWidth)
                         }
                     }
                     .opacity(prefs.flags.isEnabled(family) ? 1 : 0.5)
@@ -556,7 +657,7 @@ private struct ProfileDetailPage: View {
                     Spacer()
                     Button(role: .destructive) {
                         prefs.profiles.remove(at: index)
-                        PanelRouter.shared.go(.profiles)
+                        close()
                     } label: {
                         Label("Remove Profile", systemImage: "trash")
                     }
@@ -567,14 +668,14 @@ private struct ProfileDetailPage: View {
         } else {
             Text("This profile no longer exists.")
                 .foregroundColor(.secondary)
-                .onAppear { PanelRouter.shared.go(.profiles) }
+                .onAppear(perform: close)
         }
     }
 }
 
 // MARK: - Pieces
 
-private struct StatusPill: View {
+struct StatusPill: View {
     let enabled: Bool
     let granted: Bool
 
@@ -674,7 +775,7 @@ struct LevelsCard: View {
     }
 }
 
-private struct UpdateBanner: View {
+struct UpdateBanner: View {
     let version: String
     @ObservedObject var updates: UpdateManager
 
@@ -695,7 +796,7 @@ private struct UpdateBanner: View {
     }
 }
 
-private struct UpdateStatusRow: View {
+struct UpdateStatusRow: View {
     @ObservedObject var updates: UpdateManager
 
     var body: some View {
