@@ -3,6 +3,7 @@
 //
 //   DeviceMonitor ──frames──▶ FingerGestureRecognizer ──FingerEvent──┐
 //        (multitouch thread)  EdgeGestureRecognizer   ──EdgeEvent────┤ (hop to main)
+//                             EdgeSwipeRecognizer     ──GestureSlot──┤
 //                                                                    ▼
 //                       GestureSlot → Preferences.action(for:frontmostBundleID:) → ActionExecutor
 //                       EdgeEvent   → EdgeActionPerformer
@@ -21,6 +22,7 @@ final class GestureCoordinator: DeviceMonitorDelegate {
     private let deviceMonitor = DeviceMonitor()
     private let fingerRecognizer = FingerGestureRecognizer()
     private let edgeRecognizer = EdgeGestureRecognizer()
+    private let edgeSwipeRecognizer = EdgeSwipeRecognizer()
     private let edgePerformer = EdgeActionPerformer()
 
     private let flags = Locked(FeatureFlags())
@@ -48,6 +50,10 @@ final class GestureCoordinator: DeviceMonitorDelegate {
         edgeRecognizer.onEvent = { [weak self] event in
             let device = self?.currentDevice
             DispatchQueue.main.async { self?.edgePerformer.handle(event, device: device) }
+        }
+        edgeSwipeRecognizer.isContact = { [fingerRecognizer] in fingerRecognizer.isFingerContact($0) }
+        edgeSwipeRecognizer.onGesture = { [weak self] slot in
+            DispatchQueue.main.async { self?.perform(slot) }
         }
         edgePerformer.performGesture = { [weak self] slot in self?.perform(slot) }
 
@@ -104,6 +110,9 @@ final class GestureCoordinator: DeviceMonitorDelegate {
             settings: edge,
             edgeControls: newFlags.edgeControls,
             topEdge: newFlags.topEdge))
+        edgeSwipeRecognizer.setConfig(EdgeSwipeRecognizerConfig(
+            twoFinger: newFlags.twoFingerEdgeSwipe,
+            threeFinger: newFlags.threeFingerEdgeSwipe))
         if !newFlags.edgeControls { edgePerformer.reset() }
         refreshRunningState()
     }
@@ -134,6 +143,9 @@ final class GestureCoordinator: DeviceMonitorDelegate {
         if (f.edgeControls || f.topEdge) && !device.isMouse {
             currentDevice = device
             edgeRecognizer.process(fingers: fingers, timestamp: timestamp)
+        }
+        if (f.twoFingerEdgeSwipe || f.threeFingerEdgeSwipe) && !device.isMouse {
+            edgeSwipeRecognizer.process(fingers: fingers, timestamp: timestamp)
         }
     }
 

@@ -28,6 +28,8 @@ enum Theme {
         case .fourFinger: return "hand.raised.fill"
         case .cornerForceClick: return "square.dashed.inset.filled"
         case .topEdge: return "arrow.left.and.right.square.fill"
+        case .twoFingerEdgeSwipe: return "2.circle.fill"
+        case .threeFingerEdgeSwipe: return "3.circle.fill"
         }
     }
 
@@ -37,6 +39,8 @@ enum Theme {
         case .fourFinger: return "Four-Finger Tap / Click"
         case .cornerForceClick: return "Corner Force Click"
         case .topEdge: return "Top Edge Swipe"
+        case .twoFingerEdgeSwipe: return "Two-Finger Edge Swipe"
+        case .threeFingerEdgeSwipe: return "Three-Finger Edge Swipe"
         }
     }
 
@@ -45,6 +49,7 @@ enum Theme {
         case .threeFinger, .fourFinger: return "Quick tap, or hold for a click"
         case .cornerForceClick: return "Press hard in a trackpad corner"
         case .topEdge: return "Flick along the top edge"
+        case .twoFingerEdgeSwipe, .threeFingerEdgeSwipe: return "Start at an edge, swipe inward"
         }
     }
 }

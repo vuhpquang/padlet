@@ -25,6 +25,9 @@ struct FeatureFlags: Codable, Equatable {
     var cornerForceClick = true
     var edgeControls = true
     var topEdge = true
+    /// Off by default: two-finger swipes overlap scrolling and some system gestures.
+    var twoFingerEdgeSwipe = false
+    var threeFingerEdgeSwipe = false
     var appProfiles = true
 
     init() {}
@@ -38,6 +41,8 @@ struct FeatureFlags: Codable, Equatable {
         cornerForceClick = c.value(.cornerForceClick, d.cornerForceClick)
         edgeControls     = c.value(.edgeControls, d.edgeControls)
         topEdge          = c.value(.topEdge, d.topEdge)
+        twoFingerEdgeSwipe   = c.value(.twoFingerEdgeSwipe, d.twoFingerEdgeSwipe)
+        threeFingerEdgeSwipe = c.value(.threeFingerEdgeSwipe, d.threeFingerEdgeSwipe)
         appProfiles      = c.value(.appProfiles, d.appProfiles)
     }
 
@@ -47,6 +52,8 @@ struct FeatureFlags: Codable, Equatable {
         case .fourFinger: return fourFinger
         case .cornerForceClick: return cornerForceClick
         case .topEdge: return topEdge
+        case .twoFingerEdgeSwipe: return twoFingerEdgeSwipe
+        case .threeFingerEdgeSwipe: return threeFingerEdgeSwipe
         }
     }
 }

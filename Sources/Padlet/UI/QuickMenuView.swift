@@ -60,6 +60,8 @@ struct QuickMenuView: View {
         case .fourFinger: return $prefs.flags.fourFinger
         case .cornerForceClick: return $prefs.flags.cornerForceClick
         case .topEdge: return $prefs.flags.topEdge
+        case .twoFingerEdgeSwipe: return $prefs.flags.twoFingerEdgeSwipe
+        case .threeFingerEdgeSwipe: return $prefs.flags.threeFingerEdgeSwipe
         }
     }
 }

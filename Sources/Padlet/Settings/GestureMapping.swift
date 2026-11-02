@@ -12,6 +12,7 @@ import Foundation
 /// Gestures are switched on/off per family (FeatureFlags).
 enum GestureFamily: String, CaseIterable {
     case threeFinger, fourFinger, cornerForceClick, topEdge
+    case twoFingerEdgeSwipe, threeFingerEdgeSwipe
 }
 
 // MARK: - GestureSlot
@@ -21,6 +22,8 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
     case fourFingerTap, fourFingerClick
     case cornerTopLeft, cornerTopRight, cornerBottomLeft, cornerBottomRight
     case topEdgeSwipeLeft, topEdgeSwipeRight
+    case twoFingerFromLeft, twoFingerFromRight, twoFingerFromTop, twoFingerFromBottom
+    case threeFingerFromLeft, threeFingerFromRight, threeFingerFromTop, threeFingerFromBottom
 
     var id: String { rawValue }
 
@@ -30,6 +33,10 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
         case .fourFingerTap, .fourFingerClick: return .fourFinger
         case .cornerTopLeft, .cornerTopRight, .cornerBottomLeft, .cornerBottomRight: return .cornerForceClick
         case .topEdgeSwipeLeft, .topEdgeSwipeRight: return .topEdge
+        case .twoFingerFromLeft, .twoFingerFromRight, .twoFingerFromTop, .twoFingerFromBottom:
+            return .twoFingerEdgeSwipe
+        case .threeFingerFromLeft, .threeFingerFromRight, .threeFingerFromTop, .threeFingerFromBottom:
+            return .threeFingerEdgeSwipe
         }
     }
 
@@ -44,6 +51,10 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
         case .cornerBottomRight: return "Bottom Right"
         case .topEdgeSwipeLeft: return "Swipe Left"
         case .topEdgeSwipeRight: return "Swipe Right"
+        case .twoFingerFromLeft, .threeFingerFromLeft: return "From Left Edge"
+        case .twoFingerFromRight, .threeFingerFromRight: return "From Right Edge"
+        case .twoFingerFromTop, .threeFingerFromTop: return "From Top Edge"
+        case .twoFingerFromBottom, .threeFingerFromBottom: return "From Bottom Edge"
         }
     }
 
@@ -54,11 +65,28 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
         case .fourFinger: return "Four Finger \(shortTitle)"
         case .cornerForceClick: return "Force Click \(shortTitle)"
         case .topEdge: return "Top Edge \(shortTitle)"
+        case .twoFingerEdgeSwipe: return "Two Finger Swipe \(shortTitle)"
+        case .threeFingerEdgeSwipe: return "Three Finger Swipe \(shortTitle)"
         }
     }
 
     static func slots(in family: GestureFamily) -> [GestureSlot] {
         allCases.filter { $0.family == family }
+    }
+
+    /// The edge-swipe slot for a finger count (2 or 3) and the edge the swipe starts from.
+    static func edgeSwipe(fingers: Int, from edge: TrackpadEdge) -> GestureSlot? {
+        switch (fingers, edge) {
+        case (2, .left): return .twoFingerFromLeft
+        case (2, .right): return .twoFingerFromRight
+        case (2, .top): return .twoFingerFromTop
+        case (2, .bottom): return .twoFingerFromBottom
+        case (3, .left): return .threeFingerFromLeft
+        case (3, .right): return .threeFingerFromRight
+        case (3, .top): return .threeFingerFromTop
+        case (3, .bottom): return .threeFingerFromBottom
+        default: return nil
+        }
     }
 }
 

@@ -28,6 +28,13 @@ Force Touch actuator, so the strengths really differ).
 | Four-finger tap / click (hold) | — / — |
 | Force click in a corner (4 corners) | Top-left: Mission Control |
 | Quick flick along the top edge ← / → | Previous Space / Next Space |
+| Two-finger swipe in from an edge (left / right / top / bottom) | — (off by default) |
+| Three-finger swipe in from an edge (left / right / top / bottom) | — (off by default) |
+
+Edge swipes start with every finger near one edge and move straight inward, e.g. two fingers
+in from the left edge → Mission Control or Run Shortcut. Padlet can't block macOS's own gestures,
+so a swipe can also scroll a little or trigger Back / Forward, and two fingers in from the right
+edge already opens Notification Center — leave that slot empty.
 
 Actions, grouped in the picker:
 
