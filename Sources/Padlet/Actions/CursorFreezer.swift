@@ -8,10 +8,12 @@
 //      pointer back to its anchor, catching whatever layer 1 lets through.
 // The warp suppression interval is set to 0 so the warp doesn't briefly lock input.
 //
-// Layer 2 is what actually works (measured on macOS 27: tap + warp ≈ 1 px drift, layer 1
-// alone does nothing). The cursor moves *before* the tap sees the event, so the warp-back
-// must be immediate: the tap runs on its own thread, never the main thread, which is busy
-// with volume/OSD/SwiftUI work exactly while the finger slides.
+// macOS 27: a warp alone from inside the tap moves the reported position but not the
+// pointer the user sees (the HID system keeps accumulating trackpad deltas), and layer 1
+// does nothing. What holds the visible pointer still (tested on a Magic Trackpad) is
+// warp + posting a synthetic mouseMoved at the anchor, which resets the HID position.
+// Our own posted moves carry `marker` in eventSourceUserData and pass through the tap.
+// The tap runs on its own thread so main-thread work (volume, OSD, SwiftUI) can't delay it.
 
 import CoreGraphics
 import Foundation
@@ -29,6 +31,13 @@ final class CursorFreezer {
     private let tapRunLoop: CFRunLoop
     /// Moves swallowed and the largest distance seen, for the log line on release.
     private var heldMoves = 0
+    /// Tags the moves we post so the tap lets them through.
+    private static let marker: Int64 = 0x5041444C   // "PADL"
+    private let hidSource: CGEventSource? = {
+        let source = CGEventSource(stateID: .hidSystemState)
+        source?.localEventsSuppressionInterval = 0
+        return source
+    }()
     private var maxDrift: CGFloat = 0
 
     /// Where the pointer is pinned, or nil when not frozen.
@@ -91,6 +100,11 @@ final class CursorFreezer {
     /// Called on the tap thread for each swallowed move.
     fileprivate func hold(_ event: CGEvent, at anchor: CGPoint) {
         CGWarpMouseCursorPosition(anchor)
+        if let move = CGEvent(mouseEventSource: hidSource, mouseType: .mouseMoved,
+                              mouseCursorPosition: anchor, mouseButton: .left) {
+            move.setIntegerValueField(.eventSourceUserData, value: Self.marker)
+            move.post(tap: .cghidEventTap)
+        }
         let p = event.location
         lock.lock()
         heldMoves += 1
@@ -128,7 +142,9 @@ final class CursorFreezer {
                     if let tap = freezer.eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
                     return Unmanaged.passUnretained(event)
                 }
-                guard let anchor = freezer.anchor else { return Unmanaged.passUnretained(event) }
+                guard let anchor = freezer.anchor,
+                      event.getIntegerValueField(.eventSourceUserData) != CursorFreezer.marker
+                else { return Unmanaged.passUnretained(event) }
                 freezer.hold(event, at: anchor)
                 return nil
             },

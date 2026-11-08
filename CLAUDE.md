@@ -87,11 +87,13 @@ paused while a recorder listens.
 - Replacing `/Applications/Padlet.app` doesn't change the process that is already running.
   If that process was granted access, the grant belongs to its signature. Quit it before
   swapping builds that are signed differently.
-- Cursor freeze (`Actions/CursorFreezer.swift`): on macOS 27 only the HID event tap that swallows
-  moves and warps back works; `CGAssociateMouseAndMouseCursorPosition` alone does nothing. The
-  cursor moves before the tap sees the event, so the tap runs on its own thread; on the busy main
-  thread the warp-back lagged and the pointer visibly drifted. Each release logs
-  "CursorFreezer: held N moves, max drift X px". `CGGetEventTapList` shows Padlet's taps and latency.
+- Cursor freeze (`Actions/CursorFreezer.swift`), macOS 27: a `CGWarpMouseCursorPosition` from inside the
+  HID tap callback changes the *reported* position (`CGEvent(source:nil).location`) but not the visible
+  pointer — the HID system keeps accumulating trackpad deltas (watch `event.location` in the tap, not
+  the polled position). `CGAssociateMouseAndMouseCursorPosition` does nothing; `IOHIDSetMouseLocation`
+  holds but jitters. What works on a Magic Trackpad: swallow the move, warp, and post a synthetic
+  `mouseMoved` at the anchor (tagged in `eventSourceUserData` so the tap lets it through). The tap runs
+  on its own thread. `CGGetEventTapList` shows Padlet's taps.
 - In this shell `log` is overridden by a zsh function. Use `/usr/bin/log show …` to read
   tccd and app logs.
 
