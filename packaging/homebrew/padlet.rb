@@ -7,8 +7,8 @@
 # The fully qualified name matters: the official homebrew/cask already has an unrelated
 # "padlet" cask (padlet.com's desktop app).
 cask "padlet" do
-  version "2.3.0"
-  sha256 "c79fc4fb9c7bf57c63d0973ed70c8cab2ffc3ed59199ef53f48674eea23df337"
+  version "2.3.1"
+  sha256 "63de5981aa0e6aba10ff4f2e3bad46f58890994c7339ae7a454b939ce34eecdb"
 
   url "https://github.com/vuhpquang/padlet/releases/download/v#{version}/Padlet.dmg"
   name "Padlet"
