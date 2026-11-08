@@ -9,7 +9,7 @@ Bundle ID `com.vuhpquang.padlet`, macOS 13+, universal binary.
 
 ```bash
 swift build                       # debug build
-swift test                        # 76 unit tests: recognizers, actions, window geometry, settings
+swift test                        # 79 unit tests: recognizers, actions, window geometry, settings
 ./build.sh                        # release .app + styled DMG in build/
 scripts/release.sh X.Y.Z [notes.md]   # full release (see below)
 DRY_RUN=1 scripts/release.sh X.Y.Z    # build + verify only, reverts the version bump
@@ -45,8 +45,9 @@ Homebrew cask source.
 
 ## Top-edge app switcher
 
-`EdgeGestureRecognizer` decides top-strip flicks on lift when `EdgeSettings.topAppSwitcher` is on
-(default): lifted within `topSwipeMaxDuration` = mapped flick slot; held longer and moved sideways
+The switcher is an Edge Controls setting (`EdgeSettings.topAppSwitcher`, row in `EdgeControlsSection`),
+independent of the Top Edge Swipe family flag (`EdgeRecognizerConfig.appSwitcher` = edgeControls && setting).
+`EdgeGestureRecognizer` decides top-strip flicks on lift when it is on (default): lifted within `topSwipeMaxDuration` = mapped flick slot; held longer and moved sideways
 `switcherCommit` = `switcherBegan/Moved(offset)/Ended(commit)`, one app per `switcherStep`.
 `UI/AppSwitcher.swift` shows the panel (glass on macOS 26, material before) with apps from
 `FrontmostAppTracker.switcherApps()` (frontmost, then MRU, then other Dock apps); offset wraps.

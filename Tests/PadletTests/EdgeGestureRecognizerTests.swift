@@ -206,6 +206,25 @@ final class EdgeGestureRecognizerTests: XCTestCase {
         XCTAssertEqual(events, [])
     }
 
+    func testSwitcherWorksWithTopEdgeSwipeOff() {
+        configure { $0.topEdge = false }
+        drag([(0.5, 0.97, 0), (0.5, 0.97, 0.5), (0.55, 0.97, 0.6)])
+        XCTAssertEqual(events, [.switcherBegan(anchor: anchor), .switcherMoved(offset: 1),
+                                .switcherEnded(commit: true)])
+    }
+
+    func testTopEdgeSwipeOffSuppressesFlickWhileSwitcherOn() {
+        configure { $0.topEdge = false }
+        drag([(0.5, 0.97, 0), (0.7, 0.97, 0.1)])
+        XCTAssertEqual(events, [])
+    }
+
+    func testEdgeControlsOffDisablesSwitcher() {
+        configure { $0.edgeControls = false }
+        drag([(0.5, 0.97, 0), (0.5, 0.97, 0.5), (0.7, 0.97, 0.8)])
+        XCTAssertEqual(events, [])
+    }
+
     func testSwitcherOffKeepsSlowTopMoveAPointerMove() {
         configure { $0.settings.topAppSwitcher = false }
         drag([(0.5, 0.97, 0), (0.5, 0.97, 0.5), (0.7, 0.97, 0.8)])

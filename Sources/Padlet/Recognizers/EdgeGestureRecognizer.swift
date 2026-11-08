@@ -49,6 +49,9 @@ struct EdgeRecognizerConfig: Equatable {
     var settings = EdgeSettings()
     var edgeControls = true
     var topEdge = true
+
+    /// The app switcher belongs to Edge Controls, independent of the Top Edge Swipe family.
+    var appSwitcher: Bool { edgeControls && settings.topAppSwitcher }
 }
 
 final class EdgeGestureRecognizer {
@@ -184,7 +187,7 @@ final class EdgeGestureRecognizer {
             zone = .muteCorner
         } else if c.edgeControls && (s.mediaStrip || s.mediaTap) && p.y < stripHeight && inMiddle {
             zone = .mediaStrip
-        } else if c.topEdge && p.y > 1 - stripHeight && inMiddle && !inMuteCorner {
+        } else if (c.topEdge || c.appSwitcher) && p.y > 1 - stripHeight && inMiddle && !inMuteCorner {
             zone = .topStrip
         }
 
@@ -247,7 +250,7 @@ final class EdgeGestureRecognizer {
             t.swiped = true
             onEvent?(.mediaSwipe(forward: (dx > 0) != s.invertMediaSwipe, restore: restore))
             return
-        case .topStrip where s.topAppSwitcher:
+        case .topStrip where c.appSwitcher:
             // Flicks are decided on lift; a held touch that moves sideways switches apps.
             if timestamp - t.startTime > topSwipeMaxDuration,
                abs(dx) > switcherCommit, abs(dx) > abs(dy) {
@@ -296,11 +299,11 @@ final class EdgeGestureRecognizer {
             if !t.cancelled { onEvent?(.switcherEnded(commit: true)) }
             return
         }
-        if t.zone == .topStrip, c.settings.topAppSwitcher, !t.cancelled,
+        if t.zone == .topStrip, c.appSwitcher, !t.cancelled,
            timestamp - t.startTime <= topSwipeMaxDuration {
             let dx = t.lastPoint.x - t.start.x
             let dy = t.lastPoint.y - t.start.y
-            if abs(dx) > swipeDistance && abs(dx) > 2 * abs(dy) {
+            if c.topEdge && abs(dx) > swipeDistance && abs(dx) > 2 * abs(dy) {
                 onEvent?(.topSwipe(dx > 0 ? .topEdgeSwipeRight : .topEdgeSwipeLeft,
                                    restore: c.settings.freezeCursor ? t.anchor : nil))
             }

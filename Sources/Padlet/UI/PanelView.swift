@@ -251,6 +251,11 @@ struct EdgeControlsSection: View {
                     .controlSize(.small)
                     .fixedSize()
                 }
+                SettingRow(icon: "square.grid.3x1.below.line.grid.1x2", title: "App Switcher",
+                           subtitle: "Hold the top edge, drag to switch apps",
+                           active: prefs.edge.topAppSwitcher) {
+                    SwitchToggle(isOn: $prefs.edge.topAppSwitcher)
+                }
                 SettingRow(icon: "speaker.slash.fill", title: "Quick Mute",
                            subtitle: "Double-tap the top-right corner", active: prefs.edge.quickMute) {
                     SwitchToggle(isOn: $prefs.edge.quickMute)
@@ -428,11 +433,6 @@ struct EdgeBehaviorSection: View {
                            subtitle: "Ignore touches above the lower 25%",
                            active: prefs.edge.bottomQuarterOnly, tinted: false) {
                     SwitchToggle(isOn: $prefs.edge.bottomQuarterOnly)
-                }
-                SettingRow(icon: "square.grid.3x1.below.line.grid.1x2", title: "Top Edge App Switcher",
-                           subtitle: "Hold the top edge, drag to switch apps",
-                           active: prefs.edge.topAppSwitcher) {
-                    SwitchToggle(isOn: $prefs.edge.topAppSwitcher)
                 }
                 SettingRow(icon: "option", title: "Require Fn or ⌥",
                            subtitle: "Only slide while holding a modifier",
