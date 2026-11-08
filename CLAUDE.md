@@ -116,7 +116,7 @@ It:
 Without a notes file it uses GitHub's generated notes. Write a notes file for user-facing
 releases.
 After releasing from the parent `software-team` repo, bump the submodule pointer with
-`git add -f projects/padlet` (the parent gitignores `projects/`).
+`git add projects/padlet` and commit `chore: bump padlet submodule (Padlet X.Y.Z)`.
 
 ## Homebrew
 
