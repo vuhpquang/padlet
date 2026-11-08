@@ -9,11 +9,12 @@ Bundle ID `com.vuhpquang.padlet`, macOS 13+, universal binary.
 
 ```bash
 swift build                       # debug build
-swift test                        # 67 unit tests: recognizers, actions, window geometry, settings
+swift test                        # 76 unit tests: recognizers, actions, window geometry, settings
 ./build.sh                        # release .app + styled DMG in build/
 scripts/release.sh X.Y.Z [notes.md]   # full release (see below)
 DRY_RUN=1 scripts/release.sh X.Y.Z    # build + verify only, reverts the version bump
 PADLET_SNAPSHOT=/tmp/shots .build/debug/Padlet   # render every screen (light+dark) to PNG
+PADLET_SWITCHER_DEMO=/tmp/shots .build/debug/Padlet  # show the live glass app switcher, capture it
 PADLET_UPDATE_DRYRUN=1 .build/debug/Padlet       # check → download → verify an update, no install
 log stream --predicate 'subsystem == "com.vuhpquang.padlet"'
 ```
@@ -41,6 +42,17 @@ Homebrew cask source.
   (Dock icon + `AppMenu`: About / Check for Updates / Settings ⌘,), then goes back to
   `.accessory`.
 - Right-click quick menu (`App/MenuBarController.swift` + `UI/QuickMenuView.swift`).
+
+## Top-edge app switcher
+
+`EdgeGestureRecognizer` decides top-strip flicks on lift when `EdgeSettings.topAppSwitcher` is on
+(default): lifted within `topSwipeMaxDuration` = mapped flick slot; held longer and moved sideways
+`switcherCommit` = `switcherBegan/Moved(offset)/Ended(commit)`, one app per `switcherStep`.
+`UI/AppSwitcher.swift` shows the panel (glass on macOS 26, material before) with apps from
+`FrontmostAppTracker.switcherApps()` (frontmost, then MRU, then other Dock apps); offset wraps.
+Switcher off = old behaviour (flick fires mid-gesture, slow moves are pointer moves).
+Glass doesn't render offscreen, so `PADLET_SNAPSHOT` uses the material fallback; check glass
+with `PADLET_SWITCHER_DEMO`.
 
 ## Actions
 

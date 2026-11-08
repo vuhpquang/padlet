@@ -28,6 +28,7 @@ Force Touch actuator, so the strengths really differ).
 | Four-finger tap / click (hold) | — / — |
 | Force click in a corner (4 corners) | Top-left: Mission Control |
 | Quick flick along the top edge ← / → | Previous Space / Next Space |
+| Hold the top edge, then drag ← / → | App switcher (like ⌘⇥): one app per step, lift to switch |
 | Two-finger swipe in from an edge (left / right / top / bottom) | — (off by default) |
 | Three-finger swipe in from an edge (left / right / top / bottom) | — (off by default) |
 

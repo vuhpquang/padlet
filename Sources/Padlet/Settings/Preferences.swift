@@ -124,6 +124,8 @@ struct EdgeSettings: Codable, Equatable {
     /// Double-tap the bottom edge to play / pause.
     var mediaTap = false
     var invertMediaSwipe = false
+    /// Hold a finger on the top edge and drag sideways to switch apps (flicks still work).
+    var topAppSwitcher = true
     /// Ignore new edge touches this long after a key press.
     var typingGuardMs: Double = 300
 
@@ -146,6 +148,7 @@ struct EdgeSettings: Codable, Equatable {
         mediaStrip        = c.value(AnyKey("mediaStrip"), d.mediaStrip)
         mediaTap          = c.value(AnyKey("mediaTap"), d.mediaTap)
         invertMediaSwipe  = c.value(AnyKey("invertMediaSwipe"), d.invertMediaSwipe)
+        topAppSwitcher    = c.value(AnyKey("topAppSwitcher"), d.topAppSwitcher)
         typingGuardMs     = c.value(AnyKey("typingGuardMs"), d.typingGuardMs)
     }
 

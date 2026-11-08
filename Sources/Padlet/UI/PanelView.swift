@@ -429,6 +429,11 @@ struct EdgeBehaviorSection: View {
                            active: prefs.edge.bottomQuarterOnly, tinted: false) {
                     SwitchToggle(isOn: $prefs.edge.bottomQuarterOnly)
                 }
+                SettingRow(icon: "square.grid.3x1.below.line.grid.1x2", title: "Top Edge App Switcher",
+                           subtitle: "Hold the top edge, drag to switch apps",
+                           active: prefs.edge.topAppSwitcher) {
+                    SwitchToggle(isOn: $prefs.edge.topAppSwitcher)
+                }
                 SettingRow(icon: "option", title: "Require Fn or ⌥",
                            subtitle: "Only slide while holding a modifier",
                            active: prefs.edge.requireModifier, tinted: false) {

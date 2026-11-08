@@ -1,7 +1,7 @@
 // Recognizers/EdgeGestureRecognizer.swift
 // Single-finger gestures that start on the trackpad's edges:
 //
-//   ┌────────── top strip: quick swipe ← → (mapped action) ─────┬──┐
+//   ┌── top strip: flick ← → (mapped action) / drag ← → (app switcher) ──┬──┐
 //   │▒                                                          │●●│ double-tap: mute
 //   │▒ left edge: slide ↕                    right edge: slide ↕│ ▒│
 //   │▒ (EdgeFunction)                            (EdgeFunction) │ ▒│
@@ -11,6 +11,10 @@
 // touch becomes a slide once it moves mostly vertically by `commitDistance`; moving
 // sideways first means it's an ordinary pointer move and is left alone. A second finger
 // cancels (scroll / pinch).
+//
+// Top strip with the app switcher on: a flick (lifted within `topSwipeMaxDuration`) still
+// fires the mapped action; a touch held longer that moves sideways scrubs through apps,
+// one app per `switcherStep`, and lifting picks the selected one.
 //
 // Pure logic: frames in, EdgeEvents out (on the calling thread). The clock, modifier
 // keys and pointer location are injected so tests can drive it.
@@ -30,6 +34,12 @@ enum EdgeEvent: Equatable {
     case slideEnded
     case mediaSwipe(forward: Bool, restore: CGPoint?)
     case topSwipe(GestureSlot, restore: CGPoint?)
+    /// App switcher opened; `anchor` is where to pin the pointer (nil = don't freeze).
+    case switcherBegan(anchor: CGPoint?)
+    /// Selection moved: `offset` apps from the frontmost one (may be negative; wraps).
+    case switcherMoved(offset: Int)
+    /// Finger lifted (`commit` = switch to the selection) or the touch was cancelled.
+    case switcherEnded(commit: Bool)
     case doubleTap(EdgeTapZone)
     /// The second tap of a double tap is landing — swallow its tap-to-click.
     case armClickSuppressor
@@ -78,6 +88,10 @@ final class EdgeGestureRecognizer {
     /// Top swipes must be quick flicks — slow horizontal moves along the top are pointer moves.
     let topSwipeMaxDuration: Double = 0.4
     let stripVerticalAbort: Float = 0.1
+    /// Sideways travel that opens the app switcher (after the flick window).
+    let switcherCommit: Float = 0.03
+    /// Sideways travel per app while switching.
+    let switcherStep: Float = 0.07
     let bottomQuarter: Float = 0.25
     let palmSize: Float = 0.7
     let outOfRangeState: Int32 = 7
@@ -94,8 +108,13 @@ final class EdgeGestureRecognizer {
         let zone: Zone?         // may become a tap / swipe
         let anchor: CGPoint?
         var lastY: Float
+        var lastPoint: MTPoint
         var maxTravel: Float = 0
         var sliding = false
+        var switching = false
+        var switchOriginX: Float = 0
+        var switchDirection = 1
+        var switchOffset = 0
         var swiped = false
         var cancelled = false
         var function: EdgeFunction = .off
@@ -124,6 +143,7 @@ final class EdgeGestureRecognizer {
             if live.count > 1 && !t.cancelled {
                 t.cancelled = true
                 if t.sliding { onEvent?(.slideEnded) }
+                if t.switching { onEvent?(.switcherEnded(commit: false)) }
             }
             if !t.cancelled { update(&t, finger: f, timestamp: timestamp, config: c) }
             touch = t
@@ -179,7 +199,7 @@ final class EdgeGestureRecognizer {
 
         return Touch(id: f.identifier, start: p, startTime: timestamp,
                      sideIsLeft: sideIsLeft, zone: zone,
-                     anchor: pointer(), lastY: p.y)
+                     anchor: pointer(), lastY: p.y, lastPoint: p)
     }
 
     private static func tapZone(_ zone: Zone) -> EdgeTapZone? {
@@ -198,6 +218,7 @@ final class EdgeGestureRecognizer {
         let dx = p.x - t.start.x
         let dy = p.y - t.start.y
         t.maxTravel = max(t.maxTravel, (dx * dx + dy * dy).squareRoot())
+        t.lastPoint = p
 
         if t.sliding {
             let fine = s.fineControlAlways
@@ -205,6 +226,15 @@ final class EdgeGestureRecognizer {
             let delta = (p.y - t.lastY) * Float(s.sensitivity) / (fine ? 4 : 1)
             t.lastY = p.y
             if delta != 0 { onEvent?(.slid(t.function, delta: delta, fine: fine)) }
+            return
+        }
+        if t.switching {
+            let steps = Int(((p.x - t.switchOriginX) / switcherStep).rounded(.towardZero))
+            let offset = t.switchDirection + steps
+            if offset != t.switchOffset {
+                t.switchOffset = offset
+                onEvent?(.switcherMoved(offset: offset))
+            }
             return
         }
         if t.swiped { return }
@@ -217,6 +247,18 @@ final class EdgeGestureRecognizer {
             t.swiped = true
             onEvent?(.mediaSwipe(forward: (dx > 0) != s.invertMediaSwipe, restore: restore))
             return
+        case .topStrip where s.topAppSwitcher:
+            // Flicks are decided on lift; a held touch that moves sideways switches apps.
+            if timestamp - t.startTime > topSwipeMaxDuration,
+               abs(dx) > switcherCommit, abs(dx) > abs(dy) {
+                t.switching = true
+                t.switchDirection = dx > 0 ? 1 : -1
+                t.switchOriginX = p.x
+                t.switchOffset = t.switchDirection
+                onEvent?(.switcherBegan(anchor: s.freezeCursor ? t.anchor : nil))
+                onEvent?(.switcherMoved(offset: t.switchOffset))
+                return
+            }
         case .topStrip where horizontalSwipe:
             t.swiped = true
             if timestamp - t.startTime <= topSwipeMaxDuration {
@@ -248,6 +290,20 @@ final class EdgeGestureRecognizer {
     private func finish(_ t: Touch, timestamp: Double, config c: EdgeRecognizerConfig) {
         if t.sliding {
             if !t.cancelled { onEvent?(.slideEnded) }
+            return
+        }
+        if t.switching {
+            if !t.cancelled { onEvent?(.switcherEnded(commit: true)) }
+            return
+        }
+        if t.zone == .topStrip, c.settings.topAppSwitcher, !t.cancelled,
+           timestamp - t.startTime <= topSwipeMaxDuration {
+            let dx = t.lastPoint.x - t.start.x
+            let dy = t.lastPoint.y - t.start.y
+            if abs(dx) > swipeDistance && abs(dx) > 2 * abs(dy) {
+                onEvent?(.topSwipe(dx > 0 ? .topEdgeSwipeRight : .topEdgeSwipeLeft,
+                                   restore: c.settings.freezeCursor ? t.anchor : nil))
+            }
             return
         }
         guard !t.swiped, !t.cancelled,

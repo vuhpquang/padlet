@@ -153,7 +153,62 @@ final class EdgeGestureRecognizerTests: XCTestCase {
     }
 
     func testSlowTopMoveIsNotASwipe() {
+        configure { $0.settings.topAppSwitcher = false }
         drag([(0.5, 0.97, 0), (0.45, 0.97, 0.3), (0.3, 0.97, 0.6)])
+        XCTAssertEqual(events, [])
+    }
+
+    func testQuickTopSwipeWithoutSwitcherFiresBeforeLift() {
+        configure { $0.settings.topAppSwitcher = false }
+        drag([(0.5, 0.97, 0), (0.3, 0.97, 0.1)], lift: false)
+        XCTAssertEqual(events, [.topSwipe(.topEdgeSwipeLeft, restore: anchor)])
+    }
+
+    // MARK: App switcher
+
+    func testHeldTopDragOpensSwitcherAndCommitsOnLift() {
+        drag([(0.5, 0.97, 0), (0.5, 0.97, 0.5), (0.54, 0.97, 0.6), (0.62, 0.97, 0.7), (0.69, 0.96, 0.8)])
+        XCTAssertEqual(events, [.switcherBegan(anchor: anchor), .switcherMoved(offset: 1),
+                                .switcherMoved(offset: 2), .switcherMoved(offset: 3),
+                                .switcherEnded(commit: true)])
+    }
+
+    func testSwitcherDragLeftAndBack() {
+        drag([(0.5, 0.97, 0), (0.46, 0.97, 0.5), (0.38, 0.97, 0.6), (0.46, 0.97, 0.7), (0.54, 0.97, 0.8)])
+        XCTAssertEqual(events, [.switcherBegan(anchor: anchor), .switcherMoved(offset: -1),
+                                .switcherMoved(offset: -2), .switcherMoved(offset: -1),
+                                .switcherMoved(offset: 0), .switcherEnded(commit: true)])
+    }
+
+    func testSwitcherIgnoresVerticalDriftOnceOpen() {
+        drag([(0.5, 0.97, 0), (0.55, 0.97, 0.5), (0.55, 0.6, 0.6)])
+        XCTAssertEqual(events.last, .switcherEnded(commit: true))
+    }
+
+    func testSecondFingerCancelsSwitcher() {
+        drag([(0.5, 0.97, 0), (0.55, 0.97, 0.5)], lift: false)
+        recognizer.process(fingers: [MTFinger.make(id: 1, x: 0.6, y: 0.97), MTFinger.make(id: 2, x: 0.5, y: 0.5)],
+                           timestamp: 0.6)
+        recognizer.process(fingers: [], timestamp: 0.7)
+        XCTAssertEqual(events.last, .switcherEnded(commit: false))
+        XCTAssertEqual(events.filter { $0 == .switcherEnded(commit: true) }, [])
+    }
+
+    func testQuickFlickWithSwitcherFiresOnLiftOnly() {
+        drag([(0.5, 0.97, 0), (0.7, 0.97, 0.1)], lift: false)
+        XCTAssertEqual(events, [])
+        recognizer.process(fingers: [], timestamp: 0.15)
+        XCTAssertEqual(events, [.topSwipe(.topEdgeSwipeRight, restore: anchor)])
+    }
+
+    func testFlickHeldTooLongDoesNotSwipe() {
+        drag([(0.5, 0.97, 0), (0.51, 0.97, 0.1), (0.51, 0.97, 0.6)])
+        XCTAssertEqual(events, [])
+    }
+
+    func testSwitcherOffKeepsSlowTopMoveAPointerMove() {
+        configure { $0.settings.topAppSwitcher = false }
+        drag([(0.5, 0.97, 0), (0.5, 0.97, 0.5), (0.7, 0.97, 0.8)])
         XCTAssertEqual(events, [])
     }
 

@@ -31,7 +31,26 @@ final class FrontmostAppTracker: ObservableObject {
         lastExternalApp = AppInfo(bundleID: id, name: app.localizedName)
         recent.removeAll { $0.processIdentifier == app.processIdentifier || $0.isTerminated }
         recent.insert(app, at: 0)
-        if recent.count > 8 { recent.removeLast(recent.count - 8) }
+        if recent.count > 32 { recent.removeLast(recent.count - 32) }
+    }
+
+    /// Apps for the top-edge switcher: the frontmost first, then most recently used,
+    /// then the other running Dock apps (Padlet excluded).
+    func switcherApps() -> [NSRunningApplication] {
+        let me = Bundle.main.bundleIdentifier
+        func eligible(_ app: NSRunningApplication) -> Bool {
+            !app.isTerminated && app.activationPolicy == .regular && app.bundleIdentifier != me
+        }
+        recent.removeAll { $0.isTerminated }
+        var result: [NSRunningApplication] = []
+        var seen: Set<pid_t> = []
+        let candidates = [NSWorkspace.shared.frontmostApplication].compactMap { $0 }
+            + recent + NSWorkspace.shared.runningApplications
+        for app in candidates where eligible(app) && !seen.contains(app.processIdentifier) {
+            seen.insert(app.processIdentifier)
+            result.append(app)
+        }
+        return result
     }
 
     /// Brings back the app that was in front before the current one (like a quick ⌘⇥).

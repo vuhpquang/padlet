@@ -102,4 +102,13 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(ids, ids.sorted())
         XCTAssertEqual(Set(ids).count, ids.count)
     }
+
+    func testTopAppSwitcherDefaultsOnAndRoundTrips() throws {
+        let old = try JSONDecoder().decode(EdgeSettings.self, from: Data(#"{"edgeWidth":0.1}"#.utf8))
+        XCTAssertTrue(old.topAppSwitcher)
+        var edge = EdgeSettings()
+        edge.topAppSwitcher = false
+        let back = try JSONDecoder().decode(EdgeSettings.self, from: JSONEncoder().encode(edge))
+        XCTAssertFalse(back.topAppSwitcher)
+    }
 }

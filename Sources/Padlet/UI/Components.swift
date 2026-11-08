@@ -48,7 +48,7 @@ enum Theme {
         switch family {
         case .threeFinger, .fourFinger: return "Quick tap, or hold for a click"
         case .cornerForceClick: return "Press hard in a trackpad corner"
-        case .topEdge: return "Flick along the top edge"
+        case .topEdge: return "Flick along the top edge, or hold and drag to switch apps"
         case .twoFingerEdgeSwipe, .threeFingerEdgeSwipe: return "Start at an edge, swipe inward"
         }
     }

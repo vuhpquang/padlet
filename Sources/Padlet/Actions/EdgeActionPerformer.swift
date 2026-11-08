@@ -58,6 +58,18 @@ final class EdgeActionPerformer {
             if let p = restore { CGWarpMouseCursorPosition(p) }
             tick()
 
+        case .switcherBegan(let anchor):
+            AppSwitcher.shared.begin()
+            if let anchor = anchor { CursorFreezer.shared.freeze(at: anchor) }
+
+        case .switcherMoved(let offset):
+            AppSwitcher.shared.select(offset: offset)
+            if AppSwitcher.shared.isOpen { tick() }
+
+        case .switcherEnded(let commit):
+            AppSwitcher.shared.end(commit: commit)
+            CursorFreezer.shared.release()
+
         case .doubleTap(.muteCorner):
             toggleMute()
             tick()
@@ -74,6 +86,7 @@ final class EdgeActionPerformer {
     /// Releases anything held (engine stopped mid-slide).
     func reset() {
         slide = nil
+        AppSwitcher.shared.end(commit: false)
         CursorFreezer.shared.release()
     }
 
