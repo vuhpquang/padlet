@@ -64,7 +64,7 @@ final class EdgeActionPerformer {
 
         case .switcherMoved(let offset):
             AppSwitcher.shared.select(offset: offset)
-            if AppSwitcher.shared.isOpen { tick() }
+            tick()
 
         case .switcherEnded(let commit):
             AppSwitcher.shared.end(commit: commit)

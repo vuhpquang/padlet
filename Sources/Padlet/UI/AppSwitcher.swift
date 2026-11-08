@@ -3,7 +3,7 @@
 // finger scrubs through; lifting the finger activates the selection, like releasing ⌘⇥.
 //
 // Driven by EdgeActionPerformer on the main thread:
-//   begin() → select(offset:) … → end(commit:)
+//   begin() (snapshot apps, nothing shown) → select(offset:) (first one shows the strip) … → end(commit:)
 // Offset 0 is the frontmost app; offsets wrap around both ways.
 
 import AppKit
@@ -40,13 +40,13 @@ final class AppSwitcher {
                          icon: $0.icon ?? NSWorkspace.shared.icon(for: .application))
         }
         model.selected = 0
-        show()
     }
 
     func select(offset: Int) {
         guard !apps.isEmpty else { return }
         let n = apps.count
         model.selected = ((offset % n) + n) % n
+        if !isOpen { show() }
     }
 
     func end(commit: Bool) {
@@ -54,7 +54,7 @@ final class AppSwitcher {
             panel?.orderOut(nil)
             apps = []
         }
-        guard commit, apps.indices.contains(model.selected) else { return }
+        guard commit, isOpen, apps.indices.contains(model.selected) else { return }
         let target = apps[model.selected]
         guard !target.isTerminated,
               target.processIdentifier != NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }

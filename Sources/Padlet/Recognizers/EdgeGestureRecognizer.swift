@@ -12,9 +12,10 @@
 // sideways first means it's an ordinary pointer move and is left alone. A second finger
 // cancels (scroll / pinch).
 //
-// Top strip with the app switcher on: a flick (lifted within `topSwipeMaxDuration`) still
-// fires the mapped action; a touch held longer that moves sideways scrubs through apps,
-// one app per `switcherStep`, and lifting picks the selected one.
+// Top strip with the app switcher on: once the touch moves sideways by `switcherCommit` the
+// switcher begins (pointer pinned at once) and scrubs one app per `switcherStep`. While top
+// flicks are on, the strip only shows after `topSwipeMaxDuration`; lifting before that with
+// a flick's travel fires the mapped flick instead. Lifting after it picks the selected app.
 //
 // Pure logic: frames in, EdgeEvents out (on the calling thread). The clock, modifier
 // keys and pointer location are injected so tests can drive it.
@@ -34,9 +35,10 @@ enum EdgeEvent: Equatable {
     case slideEnded
     case mediaSwipe(forward: Bool, restore: CGPoint?)
     case topSwipe(GestureSlot, restore: CGPoint?)
-    /// App switcher opened; `anchor` is where to pin the pointer (nil = don't freeze).
+    /// App switcher armed (strip not shown yet); `anchor` is where to pin the pointer (nil = don't freeze).
     case switcherBegan(anchor: CGPoint?)
     /// Selection moved: `offset` apps from the frontmost one (may be negative; wraps).
+    /// The first one shows the strip.
     case switcherMoved(offset: Int)
     /// Finger lifted (`commit` = switch to the selection) or the touch was cancelled.
     case switcherEnded(commit: Bool)
@@ -118,6 +120,7 @@ final class EdgeGestureRecognizer {
         var switchOriginX: Float = 0
         var switchDirection = 1
         var switchOffset = 0
+        var switchVisible = false
         var swiped = false
         var cancelled = false
         var function: EdgeFunction = .off
@@ -234,8 +237,13 @@ final class EdgeGestureRecognizer {
         if t.switching {
             let steps = Int(((p.x - t.switchOriginX) / switcherStep).rounded(.towardZero))
             let offset = t.switchDirection + steps
-            if offset != t.switchOffset {
-                t.switchOffset = offset
+            let changed = offset != t.switchOffset
+            t.switchOffset = offset
+            if !t.switchVisible {
+                guard !c.topEdge || timestamp - t.startTime > topSwipeMaxDuration else { return }
+                t.switchVisible = true
+                onEvent?(.switcherMoved(offset: offset))
+            } else if changed {
                 onEvent?(.switcherMoved(offset: offset))
             }
             return
@@ -251,15 +259,18 @@ final class EdgeGestureRecognizer {
             onEvent?(.mediaSwipe(forward: (dx > 0) != s.invertMediaSwipe, restore: restore))
             return
         case .topStrip where c.appSwitcher:
-            // Flicks are decided on lift; a held touch that moves sideways switches apps.
-            if timestamp - t.startTime > topSwipeMaxDuration,
-               abs(dx) > switcherCommit, abs(dx) > abs(dy) {
+            // Sideways travel arms the switcher (and pins the pointer) right away;
+            // flicks are told apart on lift.
+            if abs(dx) > switcherCommit, abs(dx) > abs(dy) {
                 t.switching = true
                 t.switchDirection = dx > 0 ? 1 : -1
                 t.switchOriginX = p.x
                 t.switchOffset = t.switchDirection
                 onEvent?(.switcherBegan(anchor: s.freezeCursor ? t.anchor : nil))
-                onEvent?(.switcherMoved(offset: t.switchOffset))
+                if !c.topEdge || timestamp - t.startTime > topSwipeMaxDuration {
+                    t.switchVisible = true
+                    onEvent?(.switcherMoved(offset: t.switchOffset))
+                }
                 return
             }
         case .topStrip where horizontalSwipe:
@@ -296,19 +307,18 @@ final class EdgeGestureRecognizer {
             return
         }
         if t.switching {
-            if !t.cancelled { onEvent?(.switcherEnded(commit: true)) }
-            return
-        }
-        if t.zone == .topStrip, c.appSwitcher, !t.cancelled,
-           timestamp - t.startTime <= topSwipeMaxDuration {
+            if t.cancelled { return }
+            onEvent?(.switcherEnded(commit: t.switchVisible))
             let dx = t.lastPoint.x - t.start.x
             let dy = t.lastPoint.y - t.start.y
-            if c.topEdge && abs(dx) > swipeDistance && abs(dx) > 2 * abs(dy) {
+            if !t.switchVisible, c.topEdge, timestamp - t.startTime <= topSwipeMaxDuration,
+               abs(dx) > swipeDistance, abs(dx) > 2 * abs(dy) {
                 onEvent?(.topSwipe(dx > 0 ? .topEdgeSwipeRight : .topEdgeSwipeLeft,
                                    restore: c.settings.freezeCursor ? t.anchor : nil))
             }
             return
         }
+        if t.zone == .topStrip, c.appSwitcher { return }
         guard !t.swiped, !t.cancelled,
               let tapZone = t.zone.flatMap(Self.tapZone),
               timestamp - t.startTime < tapMaxDuration,
