@@ -9,7 +9,7 @@ Bundle ID `com.vuhpquang.padlet`, macOS 13+, universal binary.
 
 ```bash
 swift build                       # debug build
-swift test                        # 85 unit tests: recognizers, actions, window geometry, settings
+swift test                        # 86 unit tests: recognizers, actions, window geometry, settings
 ./build.sh                        # release .app + styled DMG in build/
 scripts/release.sh X.Y.Z [notes.md]   # full release (see below)
 DRY_RUN=1 scripts/release.sh X.Y.Z    # build + verify only, reverts the version bump
@@ -51,7 +51,9 @@ Sideways travel of `switcherCommit` on the top strip emits `switcherBegan` at on
 pointer, snapshots apps, nothing shown). The first `switcherMoved(offset)` shows the strip: right
 away when Top Edge Swipe is off, after `topSwipeMaxDuration` when it is on, so a quick flick can
 still fire the mapped slot on lift (`switcherEnded(commit: false)` + `topSwipe`). One app per `switcherStep`.
-`UI/AppSwitcher.swift` shows the panel (glass on macOS 26, material before) with apps from
+`UI/AppSwitcher.swift` shows the panel; its background is a setting
+(`EdgeSettings.switcherBackground`: Liquid Glass, the default, or Blur = `.regularMaterial`; glass
+falls back to blur before macOS 26 or with Reduce Transparency; picker under the App Switcher row) with apps from
 `FrontmostAppTracker.switcherApps()` (frontmost, then MRU, then other Dock apps); offset wraps.
 It appears on one display only: the one under the pointer (nearest one if the pointer is off every
 display; `AppSwitcher.targetIndex`). The panel is thrown away on

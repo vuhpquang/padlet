@@ -85,7 +85,8 @@ final class AppSwitcher {
 
         let panel = self.panel ?? makePanel()
         self.panel = panel
-        let hosting = NSHostingView(rootView: AppSwitcherView(model: model))
+        let hosting = NSHostingView(rootView: AppSwitcherView(
+            model: model, background: Preferences.shared.edge.switcherBackground))
         panel.contentView = hosting
         let size = hosting.fittingSize
         panel.setFrame(NSRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2,
@@ -143,8 +144,8 @@ final class AppSwitcher {
 
 struct AppSwitcherView: View {
     @ObservedObject var model: AppSwitcherModel
-    /// Snapshots turn glass off: it doesn't render offscreen.
-    var useGlass = true
+    /// Snapshots use `.blur`: glass doesn't render offscreen.
+    var background: SwitcherBackgroundStyle = .liquidGlass
 
     static let maxIconSize: CGFloat = 64
     static let minIconSize: CGFloat = 32
@@ -187,7 +188,7 @@ struct AppSwitcherView: View {
                 .lineLimit(1)
         }
         .padding(Self.outerPadding)
-        .modifier(SwitcherBackground(radius: Self.outerRadius, useGlass: useGlass))
+        .modifier(SwitcherBackground(radius: Self.outerRadius, style: background))
         .animation(Self.reduceMotion ? nil : .easeOut(duration: 0.12), value: model.selected)
     }
 
@@ -196,14 +197,14 @@ struct AppSwitcherView: View {
     }
 }
 
-/// Liquid Glass on macOS 26, a HUD material before that.
+/// Liquid Glass (macOS 26, Reduce Transparency off) or a blurred material.
 private struct SwitcherBackground: ViewModifier {
     let radius: CGFloat
-    let useGlass: Bool
+    let style: SwitcherBackgroundStyle
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        if #available(macOS 26.0, *), useGlass, !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+        if #available(macOS 26.0, *), style == .liquidGlass, !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
             content.glassEffect(.regular, in: shape)
         } else {
             content

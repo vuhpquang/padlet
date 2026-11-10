@@ -111,4 +111,14 @@ final class SettingsTests: XCTestCase {
         let back = try JSONDecoder().decode(EdgeSettings.self, from: JSONEncoder().encode(edge))
         XCTAssertFalse(back.topAppSwitcher)
     }
+
+    func testSwitcherBackgroundDefaultsToGlassAndRoundTrips() throws {
+        let old = try JSONDecoder().decode(EdgeSettings.self, from: Data(#"{"topAppSwitcher":true}"#.utf8))
+        XCTAssertEqual(old.switcherBackground, .liquidGlass)
+        var edge = EdgeSettings()
+        edge.switcherBackground = .blur
+        let data = try JSONEncoder().encode(edge)
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains(#""switcherBackground":"blur""#))
+        XCTAssertEqual(try JSONDecoder().decode(EdgeSettings.self, from: data).switcherBackground, .blur)
+    }
 }

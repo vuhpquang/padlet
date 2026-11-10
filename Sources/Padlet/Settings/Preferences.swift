@@ -104,6 +104,18 @@ enum EdgeFunction: String, Codable, CaseIterable, Identifiable {
 
 // MARK: - EdgeSettings
 
+/// Background of the top-edge app switcher. Raw values are persisted.
+enum SwitcherBackgroundStyle: String, Codable, CaseIterable, Identifiable {
+    case liquidGlass, blur
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .liquidGlass: return "Liquid Glass"
+        case .blur: return "Blur"
+        }
+    }
+}
+
 struct EdgeSettings: Codable, Equatable {
     var leftFunction: EdgeFunction = .brightness
     var rightFunction: EdgeFunction = .volume
@@ -126,6 +138,8 @@ struct EdgeSettings: Codable, Equatable {
     var invertMediaSwipe = false
     /// Hold a finger on the top edge and drag sideways to switch apps (flicks still work).
     var topAppSwitcher = true
+    /// Liquid Glass needs macOS 26 and Reduce Transparency off; otherwise the switcher uses blur.
+    var switcherBackground: SwitcherBackgroundStyle = .liquidGlass
     /// Ignore new edge touches this long after a key press.
     var typingGuardMs: Double = 300
 
@@ -149,6 +163,7 @@ struct EdgeSettings: Codable, Equatable {
         mediaTap          = c.value(AnyKey("mediaTap"), d.mediaTap)
         invertMediaSwipe  = c.value(AnyKey("invertMediaSwipe"), d.invertMediaSwipe)
         topAppSwitcher    = c.value(AnyKey("topAppSwitcher"), d.topAppSwitcher)
+        switcherBackground = c.value(AnyKey("switcherBackground"), d.switcherBackground)
         typingGuardMs     = c.value(AnyKey("typingGuardMs"), d.typingGuardMs)
     }
 

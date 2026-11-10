@@ -110,7 +110,7 @@ enum PanelSnapshot {
         model.selected = names.count - 1
         for (mode, appearance, backdrop) in [("light", NSAppearance.Name.aqua, Color(white: 0.92)),
                                              ("dark", .darkAqua, Color(white: 0.12))] {
-            render(AppSwitcherView(model: model, useGlass: false).padding(40).background(backdrop), appearance: appearance,
+            render(AppSwitcherView(model: model, background: .blur).padding(40).background(backdrop), appearance: appearance,
                    to: dir.appendingPathComponent("switcher-\(mode).png"))
         }
     }

@@ -253,8 +253,20 @@ struct EdgeControlsSection: View {
                 }
                 SettingRow(icon: "square.grid.3x1.below.line.grid.1x2", title: "App Switcher",
                            subtitle: "Hold the top edge, drag to switch apps",
-                           active: prefs.edge.topAppSwitcher) {
+                           active: prefs.edge.topAppSwitcher, expanded: isExpanded("switcher")) {
                     SwitchToggle(isOn: $prefs.edge.topAppSwitcher)
+                }
+                if expanded.contains("switcher") {
+                    SubRow(title: "Background", subtitle: switcherBackgroundNote) {
+                        Picker("", selection: $prefs.edge.switcherBackground) {
+                            ForEach(SwitcherBackgroundStyle.allCases) { Text($0.title).tag($0) }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .controlSize(.small)
+                        .fixedSize()
+                    }
+                    .disabled(!prefs.edge.topAppSwitcher)
                 }
                 SettingRow(icon: "speaker.slash.fill", title: "Quick Mute",
                            subtitle: "Double-tap the top-right corner", active: prefs.edge.quickMute) {
@@ -284,6 +296,16 @@ struct EdgeControlsSection: View {
             .disabled(!prefs.flags.edgeControls)
             .opacity(prefs.flags.edgeControls ? 1 : 0.45)
         }
+    }
+
+    /// Says when Liquid Glass can't be shown and blur is used instead.
+    private var switcherBackgroundNote: String? {
+        guard prefs.edge.switcherBackground == .liquidGlass else { return nil }
+        if #unavailable(macOS 26.0) { return "Needs macOS 26, blur is used" }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+            return "Reduce Transparency is on, blur is used"
+        }
+        return nil
     }
 
     private func edgeFunctionRow(left: Bool) -> some View {
