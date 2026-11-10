@@ -139,6 +139,14 @@ It:
 7. Runs `gh release create` with the DMG.
 8. Regenerates `Casks/padlet.rb` in `vuhpquang/homebrew-tap` and pushes it.
 
+Where to release depends on the network:
+- At home: the normal release above (push + GitHub release + tap), plus `INSTALL=1` to replace
+  `/Applications/Padlet.app` right away.
+- At the office (GitHub push is blocked): `PUBLISH=0 INSTALL=1 scripts/release.sh X.Y.Z` skips the
+  origin sync check, gh, push, GitHub release and tap; it still bumps, tests, builds, verifies the
+  signer, commits `release: vX.Y.Z`, tags locally and installs. The next normal release pushes develop
+  with `--follow-tags`, so the local tags go up too, and the installed copy updates to that version.
+
 Without a notes file it uses GitHub's generated notes. Write a notes file for user-facing
 releases.
 After releasing from the parent `software-team` repo, bump the submodule pointer with

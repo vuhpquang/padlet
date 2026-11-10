@@ -4,6 +4,12 @@
 #   scripts/release.sh 2.0.1                    # notes generated from commits
 #   scripts/release.sh 2.0.1 notes.md           # notes from a Markdown file
 #   DRY_RUN=1 scripts/release.sh 2.0.1          # build + verify only, then undo the bump
+#   PUBLISH=0 scripts/release.sh 2.0.1          # commit + tag locally, no push / GitHub release / tap
+#   INSTALL=1 scripts/release.sh 2.0.1          # also replace /Applications/Padlet.app
+#   PUBLISH=0 INSTALL=1 scripts/release.sh 2.0.1   # offline (office network): local release + install
+#
+# A PUBLISH=0 release is pushed by the next normal release: it pushes develop with all
+# commits, and the installed copy updates to that newer version.
 #
 # Steps: preflight → bump Info.plist → swift test → ./build.sh → verify the signer →
 # update packaging/homebrew/padlet.rb → commit + tag + push develop → GitHub release with
@@ -24,6 +30,8 @@ DMG="build/Padlet.dmg"
 SIGN_IDENTITY="Padlet Self-Signed"
 RELEASE_CERT="3e9ca590624d6067b7d52ad6e71756310b4d86a9"   # SHA-1 of that certificate
 DRY_RUN="${DRY_RUN:-0}"
+PUBLISH="${PUBLISH:-1}"
+INSTALL="${INSTALL:-0}"
 
 die()  { echo "error: $*" >&2; exit 1; }
 step() { echo; echo "==> $*"; }
@@ -38,10 +46,12 @@ TAG="v${VERSION}"
 step "Preflight"
 [[ "$(git branch --show-current)" == "$BRANCH" ]] || die "release from '$BRANCH'"
 [[ -z "$(git status --porcelain)" ]] || die "working tree not clean"
-git fetch -q origin "$BRANCH" --tags
-[[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]] || die "$BRANCH is not in sync with origin"
+if [[ "$PUBLISH" == "1" && "$DRY_RUN" != "1" ]]; then
+    git fetch -q origin "$BRANCH" --tags
+    [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]] || die "$BRANCH is not in sync with origin"
+    gh auth status >/dev/null 2>&1 || die "gh is not logged in"
+fi
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
-gh auth status >/dev/null 2>&1 || die "gh is not logged in"
 security find-identity -p codesigning | grep -q "\"$SIGN_IDENTITY\"" \
     || die "signing identity '$SIGN_IDENTITY' not in keychain (import ~/.config/padlet-signing/padlet-signing.p12)"
 
@@ -96,7 +106,9 @@ git add "$PLIST" "$CASK"
 git commit -q -m "release: $TAG"
 COMMITTED=1
 git tag -a "$TAG" -m "Padlet $VERSION"
-git push -q origin "$BRANCH" "$TAG"
+
+if [[ "$PUBLISH" == "1" ]]; then
+git push -q --follow-tags origin "$BRANCH" "$TAG"   # also pushes tags of earlier PUBLISH=0 releases
 
 step "Creating GitHub release $TAG"
 if [[ -n "$NOTES_FILE" ]]; then
@@ -116,7 +128,23 @@ git -C "$TAP_DIR" add Casks/padlet.rb
 git -C "$TAP_DIR" commit -q -m "padlet $VERSION"
 git -C "$TAP_DIR" push -q
 rm -rf "$TAP_DIR"
+fi
+
+if [[ "$INSTALL" == "1" ]]; then
+    step "Installing to /Applications"
+    osascript -e 'quit app id "com.vuhpquang.padlet"' >/dev/null 2>&1 || true
+    sleep 1
+    pkill -x Padlet 2>/dev/null || true
+    rm -rf /Applications/Padlet.app
+    ditto build/Padlet.app /Applications/Padlet.app
+    xattr -dr com.apple.quarantine /Applications/Padlet.app 2>/dev/null || true
+    open /Applications/Padlet.app
+fi
 
 step "Released Padlet $VERSION"
-echo "    https://github.com/$REPO/releases/tag/$TAG"
-echo "    brew upgrade --cask vuhpquang/tap/padlet"
+if [[ "$PUBLISH" == "1" ]]; then
+    echo "    https://github.com/$REPO/releases/tag/$TAG"
+    echo "    brew upgrade --cask vuhpquang/tap/padlet"
+else
+    echo "    local only: commit + tag $TAG not pushed; the next normal release pushes develop"
+fi
