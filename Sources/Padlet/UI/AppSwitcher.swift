@@ -28,6 +28,15 @@ final class AppSwitcher {
     private let model = AppSwitcherModel()
     private var apps: [NSRunningApplication] = []
     private var panel: NSPanel?
+    private var screenObserver: NSObjectProtocol?
+
+    init() {
+        // Plugging/unplugging displays can leave a reused panel tied to a display that no longer
+        // exists, so it never shows again. Throw it away; the next gesture builds a fresh one.
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.discardPanel() }
+    }
 
     var isOpen: Bool { panel?.isVisible == true }
     var windowNumber: Int? { panel?.windowNumber }
@@ -69,9 +78,8 @@ final class AppSwitcher {
 
     // MARK: Panel
 
-    private func show() {
-        let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
-            ?? NSScreen.main
+    private func show(retry: Bool = true) {
+        let screen = Self.targetScreen(mouse: NSEvent.mouseLocation, screens: NSScreen.screens)
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         model.iconSize = AppSwitcherView.iconSize(count: apps.count, maxWidth: visible.width - 80)
 
@@ -83,6 +91,38 @@ final class AppSwitcher {
         panel.setFrame(NSRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2,
                               width: size.width, height: size.height), display: true)
         panel.orderFrontRegardless()
+
+        // A panel left over from an old display layout can refuse to come up: rebuild it once.
+        if retry, !panel.isVisible || panel.screen == nil {
+            Log.info("App switcher panel didn't show, rebuilding")
+            discardPanel()
+            show(retry: false)
+        }
+    }
+
+    private func discardPanel() {
+        panel?.orderOut(nil)
+        panel?.contentView = nil
+        panel = nil
+    }
+
+    /// The display under the pointer; when the pointer sits on no display (a gap between
+    /// displays, or the outer edge) the nearest one; with no displays reported, nil.
+    /// `screens.first` is the primary display (menu bar), the fallback when nothing is near.
+    static func targetScreen(mouse: NSPoint, screens: [NSScreen]) -> NSScreen? {
+        guard let i = targetIndex(mouse: mouse, frames: screens.map(\.frame)) else { return nil }
+        return screens[i]
+    }
+
+    static func targetIndex(mouse: NSPoint, frames: [NSRect]) -> Int? {
+        guard !frames.isEmpty else { return nil }
+        if let i = frames.firstIndex(where: { NSMouseInRect(mouse, $0, false) }) { return i }
+        func distance(_ r: NSRect) -> CGFloat {
+            let dx = max(r.minX - mouse.x, 0, mouse.x - r.maxX)
+            let dy = max(r.minY - mouse.y, 0, mouse.y - r.maxY)
+            return dx * dx + dy * dy
+        }
+        return frames.indices.min { distance(frames[$0]) < distance(frames[$1]) }
     }
 
     private func makePanel() -> NSPanel {

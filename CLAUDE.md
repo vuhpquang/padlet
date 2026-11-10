@@ -9,7 +9,7 @@ Bundle ID `com.vuhpquang.padlet`, macOS 13+, universal binary.
 
 ```bash
 swift build                       # debug build
-swift test                        # 81 unit tests: recognizers, actions, window geometry, settings
+swift test                        # 85 unit tests: recognizers, actions, window geometry, settings
 ./build.sh                        # release .app + styled DMG in build/
 scripts/release.sh X.Y.Z [notes.md]   # full release (see below)
 DRY_RUN=1 scripts/release.sh X.Y.Z    # build + verify only, reverts the version bump
@@ -53,6 +53,10 @@ away when Top Edge Swipe is off, after `topSwipeMaxDuration` when it is on, so a
 still fire the mapped slot on lift (`switcherEnded(commit: false)` + `topSwipe`). One app per `switcherStep`.
 `UI/AppSwitcher.swift` shows the panel (glass on macOS 26, material before) with apps from
 `FrontmostAppTracker.switcherApps()` (frontmost, then MRU, then other Dock apps); offset wraps.
+It appears on one display only: the one under the pointer (nearest one if the pointer is off every
+display; `AppSwitcher.targetIndex`). The panel is thrown away on
+`didChangeScreenParametersNotification` (and rebuilt once if it fails to show), because a panel
+reused across plugging/unplugging monitors could stop appearing.
 Switcher off = old behaviour (flick fires mid-gesture, slow moves are pointer moves).
 Glass doesn't render offscreen, so `PADLET_SNAPSHOT` uses the material fallback; check glass
 with `PADLET_SWITCHER_DEMO`.
