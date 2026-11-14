@@ -5,6 +5,8 @@
 //   PADLET_UPDATE_DRYRUN=1     check → download → verify → stage an update, no install
 
 #if DEBUG
+import AppShellCore
+import UpdaterKit
 import AppKit
 import SwiftUI
 
@@ -14,8 +16,8 @@ enum PanelSnapshot {
     static func runIfRequested() -> Bool {
         let env = ProcessInfo.processInfo.environment
         if env["PADLET_UPDATE_DRYRUN"] != nil {
-            UpdateManager.shared.debugDryRun { result in
-                print("update dry-run: \(result)")
+            Task { @MainActor in
+                print("update dry-run: \(await Updater.shared.dryRun())")
                 exit(0)
             }
             return true

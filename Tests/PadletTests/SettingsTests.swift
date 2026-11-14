@@ -1,4 +1,5 @@
 import XCTest
+import AppShellCore
 @testable import Padlet
 
 final class SettingsTests: XCTestCase {
@@ -88,13 +89,14 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(reloaded.profiles.map(\.bundleID), ["a.b"])
     }
 
-    func testVersionComparison() {
-        XCTAssertTrue(UpdateManager.isVersion("2.0.0", newerThan: "1.0.2"))
-        XCTAssertTrue(UpdateManager.isVersion("1.10", newerThan: "1.9.9"))
-        XCTAssertTrue(UpdateManager.isVersion("1.0.1", newerThan: "1.0"))
-        XCTAssertFalse(UpdateManager.isVersion("1.0.2", newerThan: "2.0.0"))
-        XCTAssertFalse(UpdateManager.isVersion("2.0.0", newerThan: "2.0"))
-        XCTAssertFalse(UpdateManager.isVersion("2.0.0-beta.1", newerThan: "2.0.0"))
+    @MainActor func testUpdateSettingsAdapterUsesExistingKeys() {
+        let prefs = Preferences(defaults: UserDefaults(suiteName: "padlet-test-\(UUID())")!)
+        let store = PadletUpdateSettings(prefs: prefs)
+        store.autoCheck = false
+        store.autoInstall = true
+        XCTAssertFalse(prefs.general.autoCheckUpdates)
+        XCTAssertTrue(prefs.general.autoInstallUpdates)
+        XCTAssertEqual(AppIdentity.padlet.repo, "vuhpquang/padlet")
     }
 
     func testHapticStrengthOrdering() {

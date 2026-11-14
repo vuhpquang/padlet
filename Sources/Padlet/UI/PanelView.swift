@@ -6,6 +6,9 @@
 //   profile(id) — one app's overrides
 // Everything writes straight to Preferences.shared (persisted + applied immediately).
 
+import AppShellCore
+import UpdaterKit
+import AboutKit
 import AppKit
 import SwiftUI
 
@@ -60,7 +63,7 @@ final class LiveStatus: ObservableObject {
 
 struct PanelView: View {
     @ObservedObject private var prefs = Preferences.shared
-    @ObservedObject private var updates = UpdateManager.shared
+    @ObservedObject private var updates = Updater.shared
     @ObservedObject private var router = PanelRouter.shared
     @StateObject private var live = LiveStatus()
 
@@ -151,15 +154,15 @@ struct PanelView: View {
                     NotificationCenter.default.post(name: .padletShowSettingsWindow, object: nil)
                 }
                 Button("About Padlet") { NotificationCenter.default.post(name: .padletShowAbout, object: nil) }
-                Button("Check for Updates\u{2026}") {
-                    updates.check(userInitiated: true)
-                    NotificationCenter.default.post(name: .padletShowAbout, object: nil)
+                Button("Check for Updates\u{2026}") { AppWindows.shared.checkForUpdates() }
+                if let title = WhatsNewTracker.shared.menuTitle {
+                    Button(title) { AppWindows.shared.showWhatsNew() }
                 }
                 Button("Welcome Guide\u{2026}") { NotificationCenter.default.post(name: .padletShowWelcome, object: nil) }
                 Button("Accessibility Settings\u{2026}") { openAccessibilitySettings() }
                 Divider()
                 Button("Padlet on GitHub") {
-                    NSWorkspace.shared.open(URL(string: "https://github.com/\(UpdateManager.repo)")!)
+                    NSWorkspace.shared.open(AppIdentity.padlet.repoURL)
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -190,7 +193,7 @@ extension Notification.Name {
 private struct MainPage: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var live: LiveStatus
-    @ObservedObject var updates: UpdateManager
+    @ObservedObject var updates: Updater
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -421,7 +424,7 @@ struct AppProfilesEntryRow: View {
 private struct SettingsPage: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var live: LiveStatus
-    @ObservedObject var updates: UpdateManager
+    @ObservedObject var updates: Updater
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -533,7 +536,7 @@ struct GeneralSection: View {
 /// Automatic update switches and the current status.
 struct UpdatesSection: View {
     @ObservedObject var prefs: Preferences
-    @ObservedObject var updates: UpdateManager
+    @ObservedObject var updates: Updater
 
     var showsHeader = true
     /// The About pane shows the status itself, so it hides this row.
@@ -814,7 +817,7 @@ struct LevelsCard: View {
 
 struct UpdateBanner: View {
     let version: String
-    @ObservedObject var updates: UpdateManager
+    @ObservedObject var updates: Updater
 
     var body: some View {
         HStack(spacing: 10) {
@@ -834,7 +837,7 @@ struct UpdateBanner: View {
 }
 
 struct UpdateStatusRow: View {
-    @ObservedObject var updates: UpdateManager
+    @ObservedObject var updates: Updater
 
     var body: some View {
         HStack {

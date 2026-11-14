@@ -27,7 +27,7 @@
 	<key>NSAccessibilityUsageDescription</key>
 	<string>Padlet reads trackpad gestures and turns them into clicks, shortcuts, volume and brightness changes.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2026 Vu Ha</string>
+	<string>© 2026 Ha Phung Quang Vu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

@@ -4,6 +4,9 @@
 //   • Right click → quick menu: header + family switches (SwiftUI), then commands.
 // The glyph shows a slash when everything is off and turns orange without Accessibility.
 
+import AppShellCore
+import UpdaterKit
+import AboutKit
 import AppKit
 import Combine
 import SwiftUI
@@ -81,8 +84,10 @@ final class MenuBarController: NSObject {
         menu.addItem(.separator())
         addItem("About Padlet", symbol: "info.circle") { AppWindows.shared.showAbout() }
         addItem("Check for Updates\u{2026}", symbol: "arrow.triangle.2.circlepath") {
-            UpdateManager.shared.check(userInitiated: true)
-            AppWindows.shared.showAbout()
+            AppWindows.shared.checkForUpdates()
+        }
+        if let title = MainActor.assumeIsolated({ WhatsNewTracker.shared.menuTitle }) {
+            addItem(title, symbol: "sparkles") { AppWindows.shared.showWhatsNew() }
         }
         addItem("Welcome Guide\u{2026}", symbol: "sparkles") { [weak self] in self?.onShowWelcome?() }
         menu.addItem(.separator())

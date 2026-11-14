@@ -1,16 +1,21 @@
 // UI/SettingsWindow.swift
-// The full Settings window (sidebar + pane), the About window, and the window plumbing
-// that gives Padlet a Dock icon and an app menu while one of its windows is open.
-// The menu bar panel stays the quick surface; both write to Preferences.shared.
+// The Settings window — Padlet's own pages in the shared app-shell Settings shell (sidebar, then the
+// shared Updates and About panes) — and the window plumbing that gives Padlet a Dock icon and an
+// app menu while it is open. The menu bar panel stays the quick surface; both write to Preferences.shared.
 
+import AboutKit
 import AppKit
+import AppShellCore
 import Combine
+import SettingsKit
 import SwiftUI
+import UpdaterKit
 
 // MARK: - Panes
 
+/// Raw values are pane ids. `updates` and `about` are drawn by SettingsShell.
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, edges, gestures, profiles, about
+    case general, edges, gestures, profiles, updates, about
     var id: String { rawValue }
 
     var title: String {
@@ -19,29 +24,24 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .edges: return "Edge Controls"
         case .gestures: return "Gestures"
         case .profiles: return "App Profiles"
-        case .about: return "About & Updates"
+        case .updates: return "Updates"
+        case .about: return "About"
         }
     }
 
     var symbol: String {
         switch self {
-        case .general: return "gearshape.fill"
+        case .general: return "gearshape"
         case .edges: return "rectangle.lefthalf.inset.filled"
-        case .gestures: return "hand.raised.fingers.spread.fill"
-        case .profiles: return "square.stack.3d.up.fill"
-        case .about: return "info.circle.fill"
+        case .gestures: return "hand.raised.fingers.spread"
+        case .profiles: return "square.stack.3d.up"
+        case .updates: return "arrow.down.circle"
+        case .about: return "info.circle"
         }
     }
 
-    var color: Color {
-        switch self {
-        case .general: return .gray
-        case .edges: return Color(red: 0.19, green: 0.65, blue: 1.0)
-        case .gestures: return Theme.accent
-        case .profiles: return Color(red: 1.0, green: 0.55, blue: 0.1)
-        case .about: return Color(red: 0.55, green: 0.45, blue: 1.0)
-        }
-    }
+    /// Padlet's own pages, in sidebar order.
+    static let own: [SettingsPane] = [.general, .edges, .gestures, .profiles]
 }
 
 final class SettingsRouter: ObservableObject {
@@ -54,111 +54,51 @@ final class SettingsRouter: ObservableObject {
 
 struct SettingsView: View {
     @ObservedObject private var prefs = Preferences.shared
-    @ObservedObject private var updates = UpdateManager.shared
     @ObservedObject private var router = SettingsRouter.shared
     @StateObject private var live = LiveStatus()
 
     static let contentWidth: CGFloat = 470
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider()
-            ScrollView(.vertical) {
-                pane
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 22)
-                    .frame(width: Self.contentWidth + 56, alignment: .topLeading)
-            }
-            .frame(maxHeight: .infinity)
-        }
-        .frame(height: 580)
+        SettingsShell(
+            app: .padlet,
+            updater: .shared,
+            panes: SettingsPane.own.map { pane in
+                SettingsKit.SettingsPane(id: pane.rawValue, title: pane.title, systemImage: pane.symbol) {
+                    ScrollView(.vertical) {
+                        page(pane)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 22)
+                            .frame(maxWidth: Self.contentWidth + 56, alignment: .topLeading)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+            },
+            selection: Binding(get: { router.pane.rawValue },
+                               set: { router.profile = nil; router.pane = SettingsPane(rawValue: $0) ?? .general }),
+            style: SettingsShellStyle(sidebarIconTint: Theme.accent, windowSize: CGSize(width: 760, height: 580)),
+            onWhatsNew: { AppWindows.shared.showWhatsNew() }
+        )
         .tint(Theme.accent)
         .onAppear { live.start() }
         .onDisappear { live.stop() }
     }
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                Image(nsImage: padletIcon).resizable().frame(width: 30, height: 30)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Padlet").font(.system(size: 14, weight: .semibold))
-                    Text("Version \(updates.currentVersion)").font(.system(size: 10.5)).foregroundColor(.secondary)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-
-            ForEach(SettingsPane.allCases) { pane in
-                if pane == .about { Spacer().frame(height: 10) }
-                Button {
-                    router.profile = nil
-                    router.pane = pane
-                } label: {
-                    HStack(spacing: 9) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(pane.color.gradient)
-                            Image(systemName: pane.symbol)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-                        .frame(width: 22, height: 22)
-                        Text(pane.title).font(.system(size: 13))
-                        Spacer()
-                        if pane == .about, case .available = updates.state {
-                            Circle().fill(Color.red).frame(width: 7, height: 7)
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(router.pane == pane ? Color.primary.opacity(0.10) : .clear))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 8)
-        .frame(width: 196)
-        .background(Color.primary.opacity(0.035))
-    }
-
     @ViewBuilder
-    private var pane: some View {
+    private func page(_ pane: SettingsPane) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            paneHeader
-            switch router.pane {
+            if pane == .profiles, router.profile != nil {
+                Button { router.profile = nil } label: {
+                    Label("All profiles", systemImage: "chevron.left")
+                }
+                .buttonStyle(.link)
+            }
+            switch pane {
             case .general: generalPane
             case .edges: edgesPane
             case .gestures: gesturesPane
             case .profiles: profilesPane
-            case .about:
-                VStack(alignment: .leading, spacing: 18) {
-                    AboutView(updates: updates)
-                    Divider()
-                    UpdatesSection(prefs: prefs, updates: updates, showsStatus: false)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var paneHeader: some View {
-        if router.pane != .about {
-            HStack(spacing: 8) {
-                if router.pane == .profiles, router.profile != nil {
-                    Button { router.profile = nil } label: {
-                        Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .help("All profiles")
-                }
-                Text(router.pane.title)
-                    .font(.system(size: 20, weight: .bold))
+            case .updates, .about: EmptyView()
             }
         }
     }
@@ -234,113 +174,6 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - About
-
-enum Author {
-    static let name = "Ha Phung Quang Vu"
-    static let github = URL(string: "https://github.com/vuhpquang")!
-    static let linkedIn = URL(string: "https://www.linkedin.com/in/vuhpquang")!
-}
-
-struct AboutView: View {
-    @ObservedObject var updates: UpdateManager
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(nsImage: padletIcon)
-                .resizable()
-                .frame(width: 112, height: 112)
-                .shadow(color: .black.opacity(0.18), radius: 10, y: 5)
-            VStack(spacing: 4) {
-                Text("Padlet").font(.system(size: 26, weight: .bold))
-                Text("Version \(updates.currentVersion) (\(buildNumber))")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .textSelection(.enabled)
-            }
-            Text("Trackpad edge controls and extra gestures for your Mac.")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            VStack(spacing: 2) {
-                Text("Made by").font(.system(size: 11)).foregroundColor(.secondary)
-                Text(Author.name).font(.system(size: 15, weight: .semibold))
-                HStack(spacing: 12) {
-                    Link("GitHub", destination: Author.github)
-                    Text("·").foregroundColor(.secondary)
-                    Link("LinkedIn", destination: Author.linkedIn)
-                    Text("·").foregroundColor(.secondary)
-                    Link("Source code", destination: URL(string: "https://github.com/\(UpdateManager.repo)")!)
-                }
-                .font(.system(size: 12))
-                .padding(.top, 2)
-            }
-            .padding(.vertical, 4)
-
-            Card(padding: 12) {
-                HStack(spacing: 10) {
-                    IconBadge(symbol: statusSymbol, active: true, color: statusColor)
-                    Text(statusText)
-                        .font(.system(size: 12.5))
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    switch updates.state {
-                    case .available:
-                        Button("Install Update") { updates.install() }.buttonStyle(.borderedProminent)
-                    case .checking, .downloading, .installing:
-                        ProgressView().controlSize(.small)
-                    default:
-                        Button("Check for Updates") { updates.check(userInitiated: true) }
-                    }
-                }
-                .controlSize(.small)
-            }
-            .frame(maxWidth: 400)
-
-            Text("© \(String(Calendar.current.component(.year, from: Date()))) \(Author.name)")
-                .font(.system(size: 10.5))
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 6)
-    }
-
-    private var buildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
-    }
-
-    private var statusText: String {
-        switch updates.state {
-        case .idle: return "Padlet checks for updates automatically."
-        case .checking: return "Checking for updates\u{2026}"
-        case .upToDate: return "Padlet is up to date."
-        case .available(let v): return "Padlet \(v) is available."
-        case .downloading: return "Downloading the update\u{2026}"
-        case .installing: return "Installing — Padlet will relaunch."
-        case .failed(let message): return "Couldn't update: \(message)"
-        }
-    }
-
-    private var statusSymbol: String {
-        switch updates.state {
-        case .upToDate: return "checkmark"
-        case .available: return "arrow.down"
-        case .failed: return "exclamationmark"
-        default: return "arrow.triangle.2.circlepath"
-        }
-    }
-
-    private var statusColor: Color {
-        switch updates.state {
-        case .upToDate: return .green
-        case .available: return Theme.accent
-        case .failed: return .orange
-        default: return .gray
-        }
-    }
-}
-
 // MARK: - Windows
 
 /// Owns the Settings window (About is one of its panes). While any Padlet window is open the app becomes a
@@ -379,8 +212,22 @@ final class AppWindows: NSObject, NSWindowDelegate {
         present(settingsWindow)
     }
 
-    /// About lives in the Settings window (About & Updates pane).
+    /// About lives in the Settings window (shared About pane).
     func showAbout() { showSettings(.about) }
+
+    /// Check now and show the Updates pane.
+    func checkForUpdates() {
+        MainActor.assumeIsolated { Updater.shared.check(userInitiated: true) }
+        showSettings(.updates)
+    }
+
+    /// Release notes of the running version; clears the "What's New in X" menu item.
+    func showWhatsNew() {
+        MainActor.assumeIsolated {
+            let app = AppIdentity.padlet
+            WhatsNewWindow.show(app: app, version: app.version, tracker: .shared)
+        }
+    }
 
     private func present(_ window: NSWindow?) {
         NSApp.setActivationPolicy(.regular)
@@ -408,6 +255,7 @@ enum AppMenu {
         let app = NSMenu(title: "Padlet")
         app.addItem(item("About Padlet", #selector(AppDelegate.showAbout(_:)), target: target))
         app.addItem(item("Check for Updates\u{2026}", #selector(AppDelegate.checkForUpdates(_:)), target: target))
+        app.addItem(item("What's New", #selector(AppDelegate.showWhatsNew(_:)), target: target))
         app.addItem(.separator())
         app.addItem(item("Settings\u{2026}", #selector(AppDelegate.showSettings(_:)), key: ",", target: target))
         app.addItem(item("Welcome Guide\u{2026}", #selector(AppDelegate.showWelcome(_:)), target: target))

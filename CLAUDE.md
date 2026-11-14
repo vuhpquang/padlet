@@ -15,7 +15,7 @@ scripts/release.sh X.Y.Z [notes.md]   # full release (see below)
 DRY_RUN=1 scripts/release.sh X.Y.Z    # build + verify only, reverts the version bump
 PADLET_SNAPSHOT=/tmp/shots .build/debug/Padlet   # render every screen (light+dark) to PNG
 PADLET_SWITCHER_DEMO=/tmp/shots .build/debug/Padlet  # show the live glass app switcher, capture it
-PADLET_UPDATE_DRYRUN=1 .build/debug/Padlet       # check → download → verify an update, no install
+PADLET_UPDATE_DRYRUN=1 APPSHELL_PRETEND_VERSION=0.0.1 .build/debug/Padlet  # check → download → verify, no install
 log stream --predicate 'subsystem == "com.vuhpquang.padlet"'
 ```
 
@@ -27,7 +27,13 @@ runs from `/Applications/Padlet.app`. Don't launch, quit or replace it unless as
 `Sources/Padlet/`: `App/` (entry, AppDelegate, menu bar, permissions), `Input/` (private
 MultitouchSupport bridge), `Recognizers/` (pure: frames in, events out — keep them free of
 AppKit/side effects so they stay testable), `Engine/` (GestureCoordinator), `Actions/`,
-`System/` (volume, brightness, media keys, OSD, haptics), `Settings/`, `Update/`, `UI/`.
+`System/` (volume, brightness, media keys, OSD, haptics), `Settings/`, `UI/`.
+Self-update, About, What's New and the Settings window shell come from **app-shell**
+(`Vendor/app-shell`, a git submodule pinned by commit; `.package(path:)`). Padlet's values for it live
+in `App/AppShell+Padlet.swift` (`AppIdentity.padlet`, `Updater.shared`, `WhatsNewTracker.shared`, an
+adapter over `Preferences.general` so the update keys stay). Fresh clone: `git submodule update --init`
+(build.sh / release.sh do it). Change shared code in `vuhpquang/app-shell`, then
+`git -C Vendor/app-shell pull` here and commit the pointer (hub rule `.claude/rules/app-shell.md`).
 `scripts/`: icon, DMG background, dmgbuild settings, release. `packaging/`: DMG art,
 Homebrew cask source.
 
@@ -36,9 +42,10 @@ Homebrew cask source.
 - Menu bar panel (`UI/PanelView.swift`, left click): quick controls. Its sections
   (`EdgeControlsSection`, `GesturesSection`, `EdgeBehaviorSection`, `GeneralSection`,
   `UpdatesSection`, `ProfilesPage`, `ProfileDetailPage`) are shared with the Settings window.
-- Settings window (`UI/SettingsWindow.swift`, `AppWindows`). Panes: General, Edge Controls,
-  Gestures, App Profiles, About & Updates. "About Padlet" everywhere opens the About & Updates
-  pane, so there is no separate About window. While the window is open the app is `.regular`
+- Settings window (`UI/SettingsWindow.swift`, `AppWindows`): app-shell's `SettingsShell` with Padlet's
+  pages (General, Edge Controls, Gestures, App Profiles — their bodies are the panel's card sections)
+  then the shared Updates and About panes. "About Padlet" everywhere opens the About pane; "Check for
+  Updates…" checks and opens Updates; "What's New in X" shows in the menus once after an update. While the window is open the app is `.regular`
   (Dock icon + `AppMenu`: About / Check for Updates / Settings ⌘,), then goes back to
   `.accessory`.
 - Right-click quick menu (`App/MenuBarController.swift` + `UI/QuickMenuView.swift`).
@@ -119,8 +126,8 @@ in the keychain and falls back to ad-hoc otherwise.
 
 ## Auto-update
 
-`Update/UpdateManager.swift` polls `api.github.com/repos/vuhpquang/padlet/releases/latest`
-at launch and every 6 h. It compares the `vX.Y.Z` tag with `CFBundleShortVersionString`
+app-shell's `Updater` (`Vendor/app-shell/Sources/UpdaterKit`) polls
+`api.github.com/repos/vuhpquang/padlet/releases/latest` 10 s after launch and every 6 h. It compares the `vX.Y.Z` tag with `CFBundleShortVersionString`
 and downloads the first `.dmg` asset. Before installing, it mounts the DMG and checks the
 bundle ID, `codesign --verify`, and that the new app satisfies the running app's designated
 requirement (same signer). A detached shell script then swaps the bundle and relaunches.

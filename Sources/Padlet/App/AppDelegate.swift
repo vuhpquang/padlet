@@ -6,6 +6,9 @@
 //   3. Start the gesture engine as soon as Accessibility is granted.
 // Also restarts the engine around sleep/wake (device handles and event taps go stale).
 
+import AppShellCore
+import UpdaterKit
+import AboutKit
 import AppKit
 import ApplicationServices
 import Combine
@@ -30,7 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppMenu.install(target: self)
         menuBarController = MenuBarController()
         menuBarController.onShowWelcome = { [weak self] in self?.showOnboarding() }
-        UpdateManager.shared.startAutomaticChecks()
+        MainActor.assumeIsolated {
+            Updater.shared.startAutomaticChecks()
+            WhatsNewTracker.shared.evaluateLaunch()
+        }
         applyOpenAtLoginDefault()
 
         if !Preferences.shared.general.onboardingCompleted {
@@ -69,10 +75,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showWelcome(_ sender: Any?) { showOnboarding() }
 
-    @objc func checkForUpdates(_ sender: Any?) {
-        UpdateManager.shared.check(userInitiated: true)
-        AppWindows.shared.showAbout()
-    }
+    @objc func checkForUpdates(_ sender: Any?) { AppWindows.shared.checkForUpdates() }
+
+    @objc func showWhatsNew(_ sender: Any?) { AppWindows.shared.showWhatsNew() }
 
     // MARK: - Onboarding
 
