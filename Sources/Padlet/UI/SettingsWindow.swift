@@ -57,22 +57,12 @@ struct SettingsView: View {
     @ObservedObject private var router = SettingsRouter.shared
     @StateObject private var live = LiveStatus()
 
-    static let contentWidth: CGFloat = 470
-
     var body: some View {
         SettingsShell(
             app: .padlet,
             updater: .shared,
             panes: SettingsPane.own.map { pane in
-                SettingsKit.SettingsPane(id: pane.rawValue, title: pane.title, systemImage: pane.symbol) {
-                    ScrollView(.vertical) {
-                        page(pane)
-                            .padding(.horizontal, 28)
-                            .padding(.vertical, 22)
-                            .frame(maxWidth: Self.contentWidth + 56, alignment: .topLeading)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
+                SettingsKit.SettingsPane(id: pane.rawValue, title: pane.title, systemImage: pane.symbol) { page(pane) }
             },
             selection: Binding(get: { router.pane.rawValue },
                                set: { router.profile = nil; router.pane = SettingsPane(rawValue: $0) ?? .general }),
@@ -84,92 +74,20 @@ struct SettingsView: View {
         .onDisappear { live.stop() }
     }
 
+    /// Padlet's pages are stock grouped forms (UI/SettingsPages.swift).
     @ViewBuilder
     private func page(_ pane: SettingsPane) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if pane == .profiles, router.profile != nil {
-                Button { router.profile = nil } label: {
-                    Label("All profiles", systemImage: "chevron.left")
-                }
-                .buttonStyle(.link)
+        switch pane {
+        case .general: GeneralSettingsPage(prefs: prefs, live: live)
+        case .edges: EdgeSettingsPage(prefs: prefs, live: live)
+        case .gestures: GestureSettingsPage(prefs: prefs)
+        case .profiles:
+            if let id = router.profile {
+                ProfileDetailSettingsPage(prefs: prefs, profileID: id) { router.profile = nil }
+            } else {
+                ProfilesSettingsPage(prefs: prefs) { router.profile = $0 }
             }
-            switch pane {
-            case .general: generalPane
-            case .edges: edgesPane
-            case .gestures: gesturesPane
-            case .profiles: profilesPane
-            case .updates, .about: EmptyView()
-            }
-        }
-    }
-
-    // MARK: Panes
-
-    private var generalPane: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Card(padding: 12) {
-                SettingRow(icon: "power", title: "Padlet",
-                           subtitle: prefs.flags.masterEnabled ? "Gestures and edge controls are on"
-                                                               : "Everything is off",
-                           active: prefs.flags.masterEnabled) {
-                    HStack(spacing: 10) {
-                        StatusPill(enabled: prefs.flags.masterEnabled, granted: live.accessibilityGranted)
-                        SwitchToggle(isOn: $prefs.flags.masterEnabled)
-                    }
-                }
-            }
-            if !live.accessibilityGranted {
-                Card(padding: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SettingRow(icon: "exclamationmark.triangle.fill", title: "Accessibility access needed",
-                                   subtitle: "Padlet can't see the trackpad until you allow it",
-                                   active: true, color: .orange) {
-                            Button("Open Settings") { openAccessibilitySettings() }.controlSize(.small)
-                        }
-                        HStack(spacing: 6) {
-                            Text("Padlet is already switched on there but still asks?")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                            Button("Reset & Ask Again") { PermissionsManager().resetAndRequest() }
-                                .buttonStyle(.link)
-                                .font(.system(size: 11))
-                        }
-                        .padding(.leading, 40)
-                    }
-                }
-            }
-            GeneralSection(prefs: prefs, live: live, showsHeader: false)
-        }
-    }
-
-    private var edgesPane: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            LevelsCard(live: live, left: prefs.edge.leftFunction, right: prefs.edge.rightFunction)
-                .opacity(prefs.flags.edgeControls ? 1 : 0.5)
-            EdgeControlsSection(prefs: prefs)
-            Divider()
-            EdgeBehaviorSection(prefs: prefs)
-        }
-        .disabled(!prefs.flags.masterEnabled)
-    }
-
-    private var gesturesPane: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Expand a gesture to choose what each variant does. Window actions work on the front window of the app you're using.")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            GesturesSection(prefs: prefs, startExpanded: true, pickerWidth: 230, showsHeader: false)
-        }
-        .disabled(!prefs.flags.masterEnabled)
-    }
-
-    @ViewBuilder
-    private var profilesPane: some View {
-        if let id = router.profile {
-            ProfileDetailPage(prefs: prefs, profileID: id, pickerWidth: 230) { router.profile = nil }
-        } else {
-            ProfilesPage(prefs: prefs) { router.profile = $0 }
+        case .updates, .about: EmptyView()   // drawn by SettingsShell
         }
     }
 }

@@ -39,11 +39,12 @@ Homebrew cask source.
 
 ## UI surfaces
 
-- Menu bar panel (`UI/PanelView.swift`, left click): quick controls. Its sections
+- Menu bar panel (`UI/PanelView.swift`, left click): quick controls in Padlet's own card style
   (`EdgeControlsSection`, `GesturesSection`, `EdgeBehaviorSection`, `GeneralSection`,
-  `UpdatesSection`, `ProfilesPage`, `ProfileDetailPage`) are shared with the Settings window.
+  `UpdatesSection`, `ProfilesPage`, `ProfileDetailPage`).
 - Settings window (`UI/SettingsWindow.swift`, `AppWindows`): app-shell's `SettingsShell` with Padlet's
-  pages (General, Edge Controls, Gestures, App Profiles — their bodies are the panel's card sections)
+  pages (General, Edge Controls, Gestures, App Profiles) as stock grouped forms in `UI/SettingsPages.swift`
+  — they edit the same `Preferences` fields as the panel sections, so a new setting goes in both —
   then the shared Updates and About panes. "About Padlet" everywhere opens the About pane; "Check for
   Updates…" checks and opens Updates; "What's New in X" shows in the menus once after an update. While the window is open the app is `.regular`
   (Dock icon + `AppMenu`: About / Check for Updates / Settings ⌘,), then goes back to
