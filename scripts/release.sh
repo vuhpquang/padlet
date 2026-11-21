@@ -4,6 +4,7 @@
 #   scripts/release.sh 2.0.1                    # notes generated from commits
 #   scripts/release.sh 2.0.1 notes.md           # notes from a Markdown file
 #   DRY_RUN=1 scripts/release.sh 2.0.1          # build + verify only, then undo the bump
+#   DRY_RUN=1 INSTALL=1 scripts/release.sh 2.0.1  # preview: build + install to /Applications, nothing committed
 #   PUBLISH=0 scripts/release.sh 2.0.1          # commit + tag locally, no push / GitHub release / tap
 #   INSTALL=1 scripts/release.sh 2.0.1          # also replace /Applications/Padlet.app
 #   PUBLISH=0 INSTALL=1 scripts/release.sh 2.0.1   # offline (office network): local release + install
@@ -96,7 +97,23 @@ step "Updating $CASK"
 sed -i '' -E "s/^  version \".*\"/  version \"$VERSION\"/; s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$CASK"
 grep -E '^  (version|sha256) ' "$CASK"
 
+# Replaces the copy in /Applications with the build. Used by a real release and by a preview
+# (DRY_RUN=1 INSTALL=1).
+install_app() {
+    step "Installing to /Applications"
+    osascript -e 'quit app id "com.vuhpquang.padlet"' >/dev/null 2>&1 || true
+    sleep 1
+    pkill -x Padlet 2>/dev/null || true
+    rm -rf /Applications/Padlet.app
+    ditto build/Padlet.app /Applications/Padlet.app
+    xattr -dr com.apple.quarantine /Applications/Padlet.app 2>/dev/null || true
+    open /Applications/Padlet.app
+    return 0
+}
+
 if [[ "$DRY_RUN" == "1" ]]; then
+    # DRY_RUN=1 INSTALL=1 = preview: the owner tries this build in /Applications before deciding to release.
+    if [[ "${INSTALL:-0}" == "1" ]]; then install_app; step "Preview installed (version bump reverted, nothing committed)."; fi
     step "Dry run — stopping before commit; version bump reverted. Artifacts are in build/."
     exit 0
 fi
@@ -131,16 +148,7 @@ git -C "$TAP_DIR" push -q
 rm -rf "$TAP_DIR"
 fi
 
-if [[ "$INSTALL" == "1" ]]; then
-    step "Installing to /Applications"
-    osascript -e 'quit app id "com.vuhpquang.padlet"' >/dev/null 2>&1 || true
-    sleep 1
-    pkill -x Padlet 2>/dev/null || true
-    rm -rf /Applications/Padlet.app
-    ditto build/Padlet.app /Applications/Padlet.app
-    xattr -dr com.apple.quarantine /Applications/Padlet.app 2>/dev/null || true
-    open /Applications/Padlet.app
-fi
+if [[ "${INSTALL:-0}" == "1" ]]; then install_app; fi
 
 step "Released Padlet $VERSION"
 if [[ "$PUBLISH" == "1" ]]; then
