@@ -39,6 +39,8 @@ Homebrew cask source.
 
 ## UI surfaces
 
+Design system: `DESIGN.md` (look, tokens, components, render recipe, known gaps). Read it before UI work.
+
 - Menu bar panel (`UI/PanelView.swift`, left click): quick controls in Padlet's own card style
   (`EdgeControlsSection`, `GesturesSection`, `EdgeBehaviorSection`, `GeneralSection`,
   `UpdatesSection`, `ProfilesPage`, `ProfileDetailPage`).
