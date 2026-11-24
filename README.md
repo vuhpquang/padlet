@@ -165,3 +165,7 @@ reject anything else). Then it updates the cask, commits, tags and pushes, publi
 GitHub release with `Padlet.dmg`, and pushes the new cask to
 [vuhpquang/homebrew-tap](https://github.com/vuhpquang/homebrew-tap). Installed copies pick
 up the release within six hours.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
