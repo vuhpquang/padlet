@@ -25,6 +25,7 @@ final class SettingsTests: XCTestCase {
         // Slots that didn't exist in v1 get their defaults.
         XCTAssertEqual(mapping[.topEdgeSwipeLeft], .previousSpace)
         XCTAssertEqual(mapping[.fourFingerTap], GestureAction.none)
+        XCTAssertEqual(mapping[.fiveFingerClick], GestureAction.none)
     }
 
     func testMappingRoundTrip() throws {
@@ -52,6 +53,7 @@ final class SettingsTests: XCTestCase {
         let flags = try JSONDecoder().decode(FeatureFlags.self, from: Data(#"{"threeFinger":false}"#.utf8))
         XCTAssertFalse(flags.threeFinger)
         XCTAssertTrue(flags.fourFinger)
+        XCTAssertTrue(flags.fiveFinger)   // saved before five-finger gestures existed
         XCTAssertTrue(flags.masterEnabled)
     }
 
@@ -78,12 +80,16 @@ final class SettingsTests: XCTestCase {
         let defaults = freshDefaults()
         let prefs = Preferences(defaults: defaults)
         prefs.flags.fourFinger = false
+        prefs.flags.fiveFinger = false
+        prefs.mapping[.fiveFingerClick] = .missionControl
         prefs.edge.leftFunction = .zoom
         prefs.mapping[.fourFingerTap] = .appExpose
         prefs.profiles = [AppProfile(bundleID: "a.b", name: "AB")]
 
         let reloaded = Preferences(defaults: defaults)
         XCTAssertFalse(reloaded.flags.fourFinger)
+        XCTAssertFalse(reloaded.flags.fiveFinger)
+        XCTAssertEqual(reloaded.mapping[.fiveFingerClick], .missionControl)
         XCTAssertEqual(reloaded.edge.leftFunction, .zoom)
         XCTAssertEqual(reloaded.mapping[.fourFingerTap], .appExpose)
         XCTAssertEqual(reloaded.profiles.map(\.bundleID), ["a.b"])

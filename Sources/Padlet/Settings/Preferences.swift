@@ -22,6 +22,7 @@ struct FeatureFlags: Codable, Equatable {
     var masterEnabled = true
     var threeFinger = true
     var fourFinger = true
+    var fiveFinger = true
     var cornerForceClick = true
     var edgeControls = true
     var topEdge = true
@@ -38,6 +39,7 @@ struct FeatureFlags: Codable, Equatable {
         masterEnabled    = c.value(.masterEnabled, d.masterEnabled)
         threeFinger      = c.value(.threeFinger, d.threeFinger)
         fourFinger       = c.value(.fourFinger, d.fourFinger)
+        fiveFinger       = c.value(.fiveFinger, d.fiveFinger)
         cornerForceClick = c.value(.cornerForceClick, d.cornerForceClick)
         edgeControls     = c.value(.edgeControls, d.edgeControls)
         topEdge          = c.value(.topEdge, d.topEdge)
@@ -50,6 +52,7 @@ struct FeatureFlags: Codable, Equatable {
         switch family {
         case .threeFinger: return threeFinger
         case .fourFinger: return fourFinger
+        case .fiveFinger: return fiveFinger
         case .cornerForceClick: return cornerForceClick
         case .topEdge: return topEdge
         case .twoFingerEdgeSwipe: return twoFingerEdgeSwipe

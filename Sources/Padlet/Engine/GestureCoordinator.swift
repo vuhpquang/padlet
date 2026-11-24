@@ -105,6 +105,7 @@ final class GestureCoordinator: DeviceMonitorDelegate {
         fingerRecognizer.setConfig(FingerRecognizerConfig(
             threeFinger: newFlags.threeFinger,
             fourFinger: newFlags.fourFinger,
+            fiveFinger: newFlags.fiveFinger,
             forceClick: newFlags.cornerForceClick))
         edgeRecognizer.setConfig(EdgeRecognizerConfig(
             settings: edge,
@@ -136,7 +137,7 @@ final class GestureCoordinator: DeviceMonitorDelegate {
     func didReceiveFingers(_ fingers: [MTFinger], timestamp: Double, device: TouchDevice) {
         let f = flags.value
         guard f.masterEnabled else { return }
-        if f.threeFinger || f.fourFinger || f.cornerForceClick {
+        if f.threeFinger || f.fourFinger || f.fiveFinger || f.cornerForceClick {
             fingerRecognizer.process(fingers: fingers, timestamp: timestamp)
         }
         // Edges are a trackpad thing — a Magic Mouse surface has none.

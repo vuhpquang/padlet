@@ -47,6 +47,37 @@ final class FingerGestureRecognizerTests: XCTestCase {
         XCTAssertEqual(gestures, [.fourFingerClick])
     }
 
+    func testFiveFingerTapWhenFingersLandOneByOne() {
+        recognizer.process(fingers: fingers(4), timestamp: 0)
+        recognizer.process(fingers: fingers(5), timestamp: 0.03)
+        recognizer.process(fingers: [], timestamp: 0.12)
+        XCTAssertEqual(gestures, [.fiveFingerTap])
+    }
+
+    func testFiveFingerHold() {
+        recognizer.process(fingers: fingers(5), timestamp: 0)
+        recognizer.process(fingers: fingers(5), timestamp: 0.2)
+        XCTAssertEqual(gestures, [.fiveFingerClick])
+    }
+
+    func testFiveFingersCountAsFourWhenFiveFingerIsOff() {
+        recognizer.setConfig(FingerRecognizerConfig(threeFinger: true, fourFinger: true, fiveFinger: false, forceClick: true))
+        recognizer.process(fingers: fingers(5), timestamp: 0)
+        recognizer.process(fingers: [], timestamp: 0.1)
+        recognizer.process(fingers: fingers(5), timestamp: 1)
+        recognizer.process(fingers: fingers(5), timestamp: 1.2)
+        XCTAssertEqual(gestures, [.fourFingerTap, .fourFingerClick])
+    }
+
+    func testFiveFingerOnlyStillEmitsWhenOthersAreOff() {
+        recognizer.setConfig(FingerRecognizerConfig(threeFinger: false, fourFinger: false, fiveFinger: true, forceClick: false))
+        recognizer.process(fingers: fingers(4), timestamp: 0)
+        recognizer.process(fingers: [], timestamp: 0.1)
+        recognizer.process(fingers: fingers(5), timestamp: 1)
+        recognizer.process(fingers: [], timestamp: 1.1)
+        XCTAssertEqual(gestures, [.fiveFingerTap])
+    }
+
     func testMovingFingersAreAScrollNotATap() {
         recognizer.process(fingers: fingers(3, vx: 0.5), timestamp: 0)
         recognizer.process(fingers: fingers(3, vx: 0.5), timestamp: 0.1)

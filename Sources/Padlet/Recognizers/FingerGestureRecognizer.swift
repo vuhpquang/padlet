@@ -1,10 +1,11 @@
 // Recognizers/FingerGestureRecognizer.swift
 // Multi-finger taps / clicks and corner force clicks.
 //
-//   • 3 or 4 fingers down and up within `tapMaxDuration`        → Tap
-//   • 3 or 4 fingers held for `clickMinDuration`                 → Click (fires while held)
+//   • 3, 4 or 5 fingers down and up within `tapMaxDuration`     → Tap
+//   • 3, 4 or 5 fingers held for `clickMinDuration`              → Click (fires while held)
 //     The finger count is the most fingers seen during the touch, so a 4-finger tap whose
-//     fingers land one by one is still a 4-finger tap.
+//     fingers land one by one is still a 4-finger tap. With five-finger gestures off, five
+//     fingers count as four (the behaviour before five-finger gestures existed).
 //   • One finger pressing past `forceThreshold` in a corner zone → Force Click (corner)
 //
 // Pure logic: frames in, FingerEvents out (on the calling thread). No system calls.
@@ -20,6 +21,7 @@ enum FingerEvent: Equatable {
 struct FingerRecognizerConfig: Equatable {
     var threeFinger = true
     var fourFinger = true
+    var fiveFinger = true
     var forceClick = true
 }
 
@@ -66,7 +68,7 @@ final class FingerGestureRecognizer {
         let c = config.value
         let valid = fingers.filter(isFingerContact)
 
-        if c.threeFinger || c.fourFinger {
+        if c.threeFinger || c.fourFinger || c.fiveFinger {
             processMultiFinger(valid, timestamp: timestamp, config: c)
         } else {
             resetSession()
@@ -99,7 +101,7 @@ final class FingerGestureRecognizer {
             // Fingers dropped below 3: a short session that never clicked is a tap.
             if let start = sessionStart {
                 if !sessionFired && timestamp - start < tapMaxDuration {
-                    emit(maxCount >= 4 ? .fourFingerTap : .threeFingerTap, config: c)
+                    emit(slot(click: false, config: c), config: c)
                     lastFire = timestamp
                 }
                 resetSession()
@@ -125,7 +127,7 @@ final class FingerGestureRecognizer {
         if !sessionFired && timestamp - start >= clickMinDuration {
             sessionFired = true
             lastFire = timestamp
-            emit(maxCount >= 4 ? .fourFingerClick : .threeFingerClick, config: c)
+            emit(slot(click: true, config: c), config: c)
         }
     }
 
@@ -135,8 +137,21 @@ final class FingerGestureRecognizer {
         maxCount = 0
     }
 
+    /// The slot for the session's finger count. Five fingers fall back to four while
+    /// five-finger gestures are off.
+    private func slot(click: Bool, config c: FingerRecognizerConfig) -> GestureSlot {
+        if maxCount >= 5 && c.fiveFinger { return click ? .fiveFingerClick : .fiveFingerTap }
+        if maxCount >= 4 { return click ? .fourFingerClick : .fourFingerTap }
+        return click ? .threeFingerClick : .threeFingerTap
+    }
+
     private func emit(_ slot: GestureSlot, config c: FingerRecognizerConfig) {
-        let enabled = slot.family == .fourFinger ? c.fourFinger : c.threeFinger
+        let enabled: Bool
+        switch slot.family {
+        case .fiveFinger: enabled = c.fiveFinger
+        case .fourFinger: enabled = c.fourFinger
+        default: enabled = c.threeFinger
+        }
         if enabled { onEvent?(.gesture(slot)) }
     }
 

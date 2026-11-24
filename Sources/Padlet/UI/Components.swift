@@ -26,6 +26,7 @@ enum Theme {
         switch family {
         case .threeFinger: return "hand.raised.fingers.spread.fill"
         case .fourFinger: return "hand.raised.fill"
+        case .fiveFinger: return "hand.wave.fill"
         case .cornerForceClick: return "square.dashed.inset.filled"
         case .topEdge: return "arrow.left.and.right.square.fill"
         case .twoFingerEdgeSwipe: return "2.circle.fill"
@@ -37,6 +38,7 @@ enum Theme {
         switch family {
         case .threeFinger: return "Three-Finger Tap / Click"
         case .fourFinger: return "Four-Finger Tap / Click"
+        case .fiveFinger: return "Five-Finger Tap / Click"
         case .cornerForceClick: return "Corner Force Click"
         case .topEdge: return "Top Edge Swipe"
         case .twoFingerEdgeSwipe: return "Two-Finger Edge Swipe"
@@ -46,7 +48,7 @@ enum Theme {
 
     static func subtitle(for family: GestureFamily) -> String {
         switch family {
-        case .threeFinger, .fourFinger: return "Quick tap, or hold for a click"
+        case .threeFinger, .fourFinger, .fiveFinger: return "Quick tap, or hold for a click"
         case .cornerForceClick: return "Press hard in a trackpad corner"
         case .topEdge: return "Flick along the top edge"
         case .twoFingerEdgeSwipe, .threeFingerEdgeSwipe: return "Start at an edge, swipe inward"

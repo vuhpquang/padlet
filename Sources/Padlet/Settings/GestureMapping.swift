@@ -11,7 +11,7 @@ import Foundation
 
 /// Gestures are switched on/off per family (FeatureFlags).
 enum GestureFamily: String, CaseIterable {
-    case threeFinger, fourFinger, cornerForceClick, topEdge
+    case threeFinger, fourFinger, fiveFinger, cornerForceClick, topEdge
     case twoFingerEdgeSwipe, threeFingerEdgeSwipe
 }
 
@@ -20,6 +20,7 @@ enum GestureFamily: String, CaseIterable {
 enum GestureSlot: String, CaseIterable, Codable, Identifiable {
     case threeFingerTap, threeFingerClick
     case fourFingerTap, fourFingerClick
+    case fiveFingerTap, fiveFingerClick
     case cornerTopLeft, cornerTopRight, cornerBottomLeft, cornerBottomRight
     case topEdgeSwipeLeft, topEdgeSwipeRight
     case twoFingerFromLeft, twoFingerFromRight, twoFingerFromTop, twoFingerFromBottom
@@ -31,6 +32,7 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .threeFingerTap, .threeFingerClick: return .threeFinger
         case .fourFingerTap, .fourFingerClick: return .fourFinger
+        case .fiveFingerTap, .fiveFingerClick: return .fiveFinger
         case .cornerTopLeft, .cornerTopRight, .cornerBottomLeft, .cornerBottomRight: return .cornerForceClick
         case .topEdgeSwipeLeft, .topEdgeSwipeRight: return .topEdge
         case .twoFingerFromLeft, .twoFingerFromRight, .twoFingerFromTop, .twoFingerFromBottom:
@@ -43,8 +45,8 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
     /// Short label used inside a family's section.
     var shortTitle: String {
         switch self {
-        case .threeFingerTap, .fourFingerTap: return "Tap"
-        case .threeFingerClick, .fourFingerClick: return "Click (hold)"
+        case .threeFingerTap, .fourFingerTap, .fiveFingerTap: return "Tap"
+        case .threeFingerClick, .fourFingerClick, .fiveFingerClick: return "Click (hold)"
         case .cornerTopLeft: return "Top Left"
         case .cornerTopRight: return "Top Right"
         case .cornerBottomLeft: return "Bottom Left"
@@ -63,6 +65,7 @@ enum GestureSlot: String, CaseIterable, Codable, Identifiable {
         switch family {
         case .threeFinger: return "Three Finger \(shortTitle)"
         case .fourFinger: return "Four Finger \(shortTitle)"
+        case .fiveFinger: return "Five Finger \(shortTitle)"
         case .cornerForceClick: return "Force Click \(shortTitle)"
         case .topEdge: return "Top Edge \(shortTitle)"
         case .twoFingerEdgeSwipe: return "Two Finger Swipe \(shortTitle)"
