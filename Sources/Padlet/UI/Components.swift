@@ -388,16 +388,55 @@ struct ActionDetailField: View {
     }
 }
 
-/// A keystroke action's recorder.
+/// A keystroke action's recorder, plus a field to type the shortcut for combos the
+/// system takes before the recorder sees them (⌘⇧4, ⌘Space…).
 struct ShortcutRecorder: View {
     @Binding var action: GestureAction
 
     var body: some View {
         if case .keystroke(let key, let modifiers) = action {
-            KeyComboRecorder(combo: Binding(
-                get: { key.isEmpty ? nil : KeyCombo(key: key, modifiers: modifiers.rawValue) },
-                set: { action = .keystroke(key: $0?.key ?? "", modifiers: $0?.flags ?? []) }))
+            VStack(alignment: .trailing, spacing: 4) {
+                KeyComboRecorder(combo: Binding(
+                    get: { key.isEmpty ? nil : KeyCombo(key: key, modifiers: modifiers.rawValue) },
+                    set: { action = .keystroke(key: $0?.key ?? "", modifiers: $0?.flags ?? []) }))
+                TypedShortcutField { key, modifiers in action = .keystroke(key: key, modifiers: modifiers) }
+            }
         }
+    }
+}
+
+/// "Type shortcut": cmd+shift+4, ⌘⇧4, ctrl+opt+left, f5. Applied on ↩ or when the field
+/// loses focus; the recorder button above then shows the result.
+struct TypedShortcutField: View {
+    let onParsed: (String, NSEvent.ModifierFlags) -> Void
+    @State private var text = ""
+    @State private var invalid = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            TextField("Type shortcut", text: $text, prompt: Text("Type shortcut, e.g. cmd+shift+4"))
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+                .frame(width: 190)
+                .focused($focused)
+                .onSubmit(commit)
+                .onChange(of: text) { _ in invalid = false }
+                .onChange(of: focused) { isFocused in if !isFocused { commit() } }
+                .help("Modifiers: cmd, shift, opt, ctrl (or ⌘⇧⌥⌃). Keys: a letter, F1–F20, left, space, return, esc…")
+            if invalid {
+                Text("Not a shortcut. Try cmd+shift+4")
+                    .font(.system(size: 10))
+                    .foregroundColor(.red)
+            }
+        }
+    }
+
+    private func commit() {
+        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { invalid = false; return }
+        guard let parsed = KeyCodes.parse(text) else { invalid = true; return }
+        onParsed(parsed.key, parsed.modifiers)
+        text = ""
     }
 }
 

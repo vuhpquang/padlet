@@ -49,7 +49,7 @@ Actions, grouped in the picker:
 | Tabs & Navigation | Previous / Next / New / Close / Reopen Tab, Back, Forward |
 | Apps | Switch to Previous App, Quit App |
 | Media | Play / Pause, Next / Previous Track, Mute |
-| Custom | Keyboard Shortcut (click and press the keys), Open App, Open URL (web or app links), Paste Text (a saved snippet; your clipboard is restored), Run Shortcut (from the Shortcuts app), Run Shell Command (zsh) |
+| Custom | Keyboard Shortcut (click and press the keys, or type it — `cmd+shift+4` — for combos macOS grabs first), Open App, Open URL (web or app links), Paste Text (a saved snippet; your clipboard is restored), Run Shortcut (from the Shortcuts app), Run Shell Command (zsh) |
 
 Window actions act on the front window of the app you're using.
 

@@ -71,6 +71,27 @@ final class ActionTests: XCTestCase {
         XCTAssertEqual(GestureAction.builtin(.leftHalf).summary, "Left Half")
     }
 
+    func testTypedShortcutParsing() {
+        func parsed(_ text: String) -> String? {
+            KeyCodes.parse(text).map { KeyCodes.display(key: $0.key, modifiers: $0.modifiers) }
+        }
+        XCTAssertEqual(parsed("cmd+shift+4"), "⇧⌘4")
+        XCTAssertEqual(parsed("Cmd + Shift + 4"), "⇧⌘4")
+        XCTAssertEqual(parsed("⌘⇧4"), "⇧⌘4")
+        XCTAssertEqual(parsed("ctrl+opt+left"), "⌃⌥←")
+        XCTAssertEqual(parsed("alt+F5"), "⌥F5")
+        XCTAssertEqual(parsed("f12"), "F12")
+        XCTAssertEqual(parsed("cmd+space"), "⌘Space")
+        XCTAssertEqual(parsed("control return"), "⌃↩")
+        XCTAssertEqual(parsed("cmd++"), "⌘+")
+        XCTAssertEqual(parsed("⌘-"), "⌘-")
+        XCTAssertEqual(KeyCodes.parse("cmd+T")?.key, "t")
+        XCTAssertNil(KeyCodes.parse(""))
+        XCTAssertNil(KeyCodes.parse("cmd+shift"))
+        XCTAssertNil(KeyCodes.parse("cmd+a+b"))
+        XCTAssertNil(KeyCodes.parse("cmd+hello"))
+    }
+
     func testKeyCodesNamedKeys() {
         XCTAssertEqual(KeyCodes.code(for: "←"), 123)
         XCTAssertEqual(KeyCodes.code(for: "F5"), 96)

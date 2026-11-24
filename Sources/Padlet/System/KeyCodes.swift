@@ -42,6 +42,60 @@ enum KeyCodes {
         return s + (key.count == 1 ? key.uppercased() : key)
     }
 
+    // MARK: - Typed shortcuts
+
+    private static let modifierNames: [String: NSEvent.ModifierFlags] = [
+        "cmd": .command, "command": .command, "⌘": .command,
+        "shift": .shift, "⇧": .shift,
+        "opt": .option, "option": .option, "alt": .option, "⌥": .option,
+        "ctrl": .control, "control": .control, "⌃": .control,
+    ]
+
+    private static let keyAliases: [String: String] = [
+        "return": "↩", "enter": "↩", "tab": "⇥", "space": "Space",
+        "delete": "⌫", "backspace": "⌫", "esc": "⎋", "escape": "⎋",
+        "forwarddelete": "⌦", "del": "⌦",
+        "left": "←", "right": "→", "down": "↓", "up": "↑",
+        "pageup": "PgUp", "pagedown": "PgDn",
+    ]
+
+    /// Reads a shortcut typed as text — "cmd+shift+4", "⌘⇧4", "ctrl opt left", "f5" — for
+    /// combos the recorder can't catch because the system takes them first (⌘⇧4, ⌘Space…).
+    /// Returns the stored key name and modifiers, or nil unless there is exactly one key.
+    static func parse(_ text: String) -> (key: String, modifiers: NSEvent.ModifierFlags)? {
+        var rest = Substring(text.trimmingCharacters(in: .whitespaces))
+        var modifiers: NSEvent.ModifierFlags = []
+        // Leading modifier symbols, as macOS writes them: ⌃⌥⇧⌘T.
+        while rest.count > 1, let first = rest.first, let flag = modifierNames[String(first)] {
+            modifiers.insert(flag)
+            rest = rest.dropFirst()
+        }
+        var tokens = rest.split(whereSeparator: { $0 == "+" || $0 == " " }).map(String.init)
+        if rest.hasSuffix("+"), rest.count > 1 { tokens.append("+") }   // "cmd++" = ⌘+
+        if rest == "+" { tokens = ["+"] }
+
+        var key: String?
+        for token in tokens {
+            if let flag = modifierNames[token.lowercased()] {
+                modifiers.insert(flag)
+            } else if key == nil, let name = keyName(token) {
+                key = name
+            } else {
+                return nil
+            }
+        }
+        guard let key else { return nil }
+        return (key, modifiers)
+    }
+
+    /// The stored name for one typed key: a named key (any case or alias), else one character.
+    private static func keyName(_ token: String) -> String? {
+        let lower = token.lowercased()
+        if let alias = keyAliases[lower] { return alias }
+        if let named = named.first(where: { $0.name.lowercased() == lower }) { return named.name }
+        return token.count == 1 ? lower : nil
+    }
+
     // MARK: - Layout
 
     private static var cachedMap: [String: CGKeyCode]?
